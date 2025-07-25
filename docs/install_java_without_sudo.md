@@ -44,14 +44,14 @@ Add this to your `~/.bashrc` or `~/.zshrc`:
 
 ```bash
 # Java setup
-export JAVA_HOME=~/java/jdk-17.0.11+9
-export PATH=$JAVA_HOME/bin:$PATH
+echo 'export PATH=~/java/jdk-17.0.11+9/bin:$PATH' >> ~/.zshrcj
+
 ```
 
 Then apply the changes:
 
 ```bash
-source ~/.bashrc   # or source ~/.zshrc
+source ~/.zshrc  # or source ~/.bashrc 
 ```
 
 ---
