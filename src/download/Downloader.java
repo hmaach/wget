@@ -16,7 +16,9 @@ public class Downloader {
 
             int status = conn.getResponseCode();
             System.out.println("Status: " + status);
-            if (status != 200) return;
+            if (status != 200) {
+                return;
+            }
 
             String file = fileName(urlStr);
             System.out.println("Saving to: " + file);
@@ -24,7 +26,9 @@ public class Downloader {
             try (InputStream in = conn.getInputStream(); FileOutputStream out = new FileOutputStream(file)) {
                 byte[] buf = new byte[8192];
                 int n;
-                while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+                while ((n = in.read(buf)) != -1) {
+                    out.write(buf, 0, n);
+                }
             }
 
             System.out.println("Downloaded: " + urlStr);
