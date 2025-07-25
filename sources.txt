@@ -11,8 +11,10 @@ src/download/RateLimiter.java
 src/download/FileManager.java
 src/WgetApplication.java
 src/utils/SizeUtils.java
+src/utils/TerminalUtils.java
 src/utils/FileUtils.java
 src/utils/TimeUtils.java
+src/utils/FormatUtils.java
 src/cli/ArgumentParser.java
 src/cli/HelpFormatter.java
 src/Main.java

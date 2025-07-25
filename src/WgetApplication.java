@@ -5,7 +5,7 @@ public class WgetApplication {
 
     public void run(String[] args) {
         if (args.length == 0) {
-            System.out.println("Usage: ./run.sh <url>");
+            System.out.println("Usage: ./wget <url>");
             return;
         }
 
