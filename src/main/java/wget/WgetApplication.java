@@ -1,5 +1,6 @@
 package wget;
 
+import java.io.IOException;
 import java.util.List;
 
 import org.apache.commons.cli.ParseException;
@@ -32,12 +33,16 @@ public class WgetApplication {
             try {
                 urls = FileUtils.readFile(parser.getOptionValue("i"));
                 parser.setUrls(urls.toArray(new String[0])); // Creates an empty array to let Java know the target type
-            } catch (Exception e) {
+            } catch (IOException e) {
                 System.err.printf("ERROR: reading file content: %s", e.getMessage());
             }
             for (String url : parser.getUrls()) {
                 String fileName = FileUtils.extractFileName(url);
-                downloader.downloadFile(url, fileName);
+                try {
+                    downloader.downloadFile(url, fileName);
+                } catch (IOException e) {
+                    System.err.printf("ERROR: downloading file '%s': %s", fileName, e.getMessage());
+                }
             }
         } else {
             for (String url : parser.getUrls()) {
@@ -47,7 +52,11 @@ public class WgetApplication {
                 } else {
                     fileName = FileUtils.extractFileName(url);
                 }
-                downloader.downloadFile(url, fileName);
+                try {
+                    downloader.downloadFile(url, fileName);
+                } catch (IOException e) {
+                    System.err.printf("ERROR: downloading file '%s': %s", fileName, e.getMessage());
+                }
             }
         }
     }
