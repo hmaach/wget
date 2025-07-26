@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
+import wget.cli.OutputFormatter;
 import wget.utils.FileUtils;
 import wget.utils.SizeUtils;
 import wget.utils.TerminalUtils;
@@ -102,7 +103,7 @@ public class Downloader {
                 out.write(buffer, 0, bytesRead);
                 downloaded += bytesRead;
 
-                TerminalUtils.printProgressBar(downloaded, contentLength, barWidth, startNano);
+                OutputFormatter.printProgressBar(downloaded, contentLength, barWidth, startNano);
             }
             System.out.print("\n\n");
         }
