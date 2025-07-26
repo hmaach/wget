@@ -6,8 +6,10 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import wget.utils.FormatUtils;
+import wget.utils.FileUtils;
+import wget.utils.SizeUtils;
 import wget.utils.TerminalUtils;
+import wget.utils.TimeUtils;
 
 public class Downloader {
 
@@ -27,7 +29,7 @@ public class Downloader {
 
             printContentSize(contentLength, contentType);
 
-            String fileName = FormatUtils.extractFileName(urlStr);
+            String fileName = FileUtils.extractFileName(urlStr);
             System.out.printf("saving file to: ./%s%n", fileName); // "./" will be replaced with path    
 
             saveToFile(conn, fileName, contentLength);
@@ -46,7 +48,7 @@ public class Downloader {
         if (position.equals("finished")) {
             System.err.printf("Downloaded [%s]%n", url);
         }
-        System.out.printf("%s at %s%n", position, FormatUtils.timestamp());
+        System.out.printf("%s at %s%n", position, TimeUtils.timestamp());
     }
 
     /**
@@ -78,7 +80,7 @@ public class Downloader {
         if (contentLength < 0) {
             System.out.printf("content size: unspecified [%s]%n", contentType);
         } else {
-            System.out.printf("content size: %d [~%s]%n", contentLength, FormatUtils.convertToMB(contentLength));
+            System.out.printf("content size: %d [~%s]%n", contentLength, SizeUtils.convertToMB(contentLength));
         }
     }
 
