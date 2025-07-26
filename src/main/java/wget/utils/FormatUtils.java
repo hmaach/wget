@@ -1,4 +1,4 @@
-package utils;
+package wget.utils;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;

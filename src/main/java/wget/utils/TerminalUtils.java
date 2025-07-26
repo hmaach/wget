@@ -1,4 +1,4 @@
-package utils;
+package wget.utils;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;

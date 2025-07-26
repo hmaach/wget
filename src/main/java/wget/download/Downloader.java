@@ -1,9 +1,13 @@
-package download;
+package wget.download;
 
-import java.io.*;
-import java.net.*;
-import utils.FormatUtils;
-import utils.TerminalUtils;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+import wget.utils.FormatUtils;
+import wget.utils.TerminalUtils;
 
 public class Downloader {
 

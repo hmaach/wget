@@ -1,3 +1,4 @@
+package wget;
 
 public class Main {
 
