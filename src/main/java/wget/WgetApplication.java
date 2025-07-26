@@ -35,10 +35,20 @@ public class WgetApplication {
             } catch (Exception e) {
                 System.err.printf("ERROR: reading file content: %s", e.getMessage());
             }
-        }
-
-        for (String url : parser.getUrls()) {
-            downloader.downloadFile(url);
+            for (String url : parser.getUrls()) {
+                String fileName = FileUtils.extractFileName(url);
+                downloader.downloadFile(url, fileName);
+            }
+        } else {
+            for (String url : parser.getUrls()) {
+                String fileName;
+                if (parser.hasOption("O")) {
+                    fileName = parser.getOptionValue("O");
+                } else {
+                    fileName = FileUtils.extractFileName(url);
+                }
+                downloader.downloadFile(url, fileName);
+            }
         }
     }
 }

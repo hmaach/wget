@@ -7,7 +7,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 import wget.cli.OutputFormatter;
-import wget.utils.FileUtils;
 import wget.utils.SizeUtils;
 import wget.utils.TerminalUtils;
 import wget.utils.TimeUtils;
@@ -17,7 +16,7 @@ public class Downloader {
     /**
      * Main method to download a file from a URL with wget-like output.
      */
-    public void downloadFile(String urlStr) {
+    public void downloadFile(String urlStr,String fileName) {
         try {
             printTime("start", urlStr);
 
@@ -30,7 +29,7 @@ public class Downloader {
 
             printContentSize(contentLength, contentType);
 
-            String fileName = FileUtils.extractFileName(urlStr);
+            // String fileName = FileUtils.extractFileName(urlStr);
             System.out.printf("saving file to: ./%s%n", fileName); // "./" will be replaced with path    
 
             saveToFile(conn, fileName, contentLength);
