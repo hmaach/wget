@@ -7,9 +7,12 @@ import org.apache.commons.cli.ParseException;
 
 import wget.cli.ArgumentParser;
 import wget.download.Downloader;
+import wget.download.PathManager;
 import wget.utils.FileUtils;
 
 public class WgetApplication {
+
+    private String path = "./downloads/";
 
     public void run(String[] args) {
         ArgumentParser parser;
@@ -25,6 +28,17 @@ public class WgetApplication {
             parser.printHelp();
             return;
         }
+
+        try {
+            if (parser.hasOption("P")) {
+                path = PathManager.parsePath(parser.getOptionValue("P"));
+            }
+            PathManager.ensureExists(path);
+
+        } catch (Exception e) {
+            System.err.printf("Error: parsing saving Directory '%s': %s", path, e.getMessage());
+        }
+
         Downloader downloader = new Downloader();
 
         if (parser.hasOption("i")) {
@@ -39,7 +53,7 @@ public class WgetApplication {
             for (String url : parser.getUrls()) {
                 String fileName = FileUtils.extractFileName(url);
                 try {
-                    downloader.downloadFile(url, fileName);
+                    downloader.downloadFile(url, fileName, path);
                 } catch (IOException e) {
                     System.err.printf("ERROR: downloading file '%s': %s", fileName, e.getMessage());
                 }
@@ -53,7 +67,7 @@ public class WgetApplication {
                     fileName = FileUtils.extractFileName(url);
                 }
                 try {
-                    downloader.downloadFile(url, fileName);
+                    downloader.downloadFile(url, fileName, path);
                 } catch (IOException e) {
                     System.err.printf("ERROR: downloading file '%s': %s", fileName, e.getMessage());
                 }

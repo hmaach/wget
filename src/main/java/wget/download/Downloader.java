@@ -8,7 +8,7 @@ public class Downloader {
 
     private static final String METHOD = "GET";
 
-    public void downloadFile(String urlStr, String fileName) throws IOException {
+    public void downloadFile(String urlStr, String fileName, String path) throws IOException {
         try {
             ProgressPrinter.printTime("start", urlStr);
 
@@ -21,9 +21,10 @@ public class Downloader {
 
             ProgressPrinter.printContentSize(contentLength, contentType);
 
-            System.out.printf("saving file to: ./%s%n", fileName); // "./" will be replaced with path    
+            FileManager fileManager = new FileManager(fileName, path);
+            System.out.printf("saving file to: %s%n", fileManager.getFullPath());
 
-            FileManager.saveToFile(conn, fileName, contentLength);
+            fileManager.save(conn, contentLength);
 
             ProgressPrinter.printTime("finished", urlStr);
 

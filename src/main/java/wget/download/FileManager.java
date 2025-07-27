@@ -11,16 +11,27 @@ public class FileManager {
 
     private static final int BUFFER_SIZE = 8192;
 
-    public static void saveToFile(HttpURLConnection conn, String fileName, int contentLength) throws IOException {
-        // validateFileName(fileName);
-        try (InputStream in = conn.getInputStream(); FileOutputStream out = new FileOutputStream(fileName)) {
+    private final String fileName;
+    private final String path;
+
+    public FileManager(String fileName, String path) {
+        if (fileName == null || fileName.trim().isEmpty()) {
+            throw new IllegalArgumentException("File name cannot be null or empty");
+        }
+
+        this.fileName = fileName;
+        this.path = PathManager.normalizePath(path);
+    }
+
+    public void save(HttpURLConnection conn, int contentLength) throws IOException {
+        try (InputStream in = conn.getInputStream(); FileOutputStream out = new FileOutputStream(path + fileName)) {
 
             byte[] buffer = new byte[BUFFER_SIZE];
             int bytesRead;
             long downloaded = 0;
             long startNano = System.nanoTime();
 
-            final int barWidth = TerminalUtils.getTerminalWidth() - 65; // keep spaces for more data estimated in 65 chars
+            final int barWidth = TerminalUtils.getTerminalWidth() - 65;
 
             while ((bytesRead = in.read(buffer)) != -1) {
                 out.write(buffer, 0, bytesRead);
@@ -28,13 +39,12 @@ public class FileManager {
 
                 ProgressPrinter.printProgressBar(downloaded, contentLength, barWidth, startNano);
             }
+
             System.out.print("\n\n");
         }
     }
 
-    // private void validateFileName(String fileName) {
-    //     if (fileName == null || fileName.trim().isEmpty()) {
-    //         throw new IllegalArgumentException("File name cannot be null or empty");
-    //     }
-    // }
+    public String getFullPath() {
+        return path + fileName;
+    }
 }

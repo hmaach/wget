@@ -24,7 +24,7 @@ public class ArgumentParser {
         Options options = new Options();
         options.addOption("B", false, "Run in background");
         options.addOption("O", true, "Output filename");
-        options.addOption("P", false, "Output directory");
+        options.addOption("P", true, "Output directory");
         options.addOption("i", true, "Input file with URLs");
         options.addOption(null, "rate-limit", true, "Limit download speed (e.g., 500k, 2M)");
         options.addOption(null, "mirror", false, "shortcut for -N -r -l inf --no-remove-listing");
