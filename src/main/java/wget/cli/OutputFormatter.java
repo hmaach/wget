@@ -1,7 +1,6 @@
 package wget.cli;
 
 import java.io.IOException;
-import java.io.PrintStream;
 import java.net.HttpURLConnection;
 
 import wget.utils.FormatUtils;
@@ -9,30 +8,24 @@ import wget.utils.TimeUtils;
 
 public class OutputFormatter {
 
-    private final PrintStream out;
-    private final PrintStream err;
+    public final ArgumentParser parser;
 
-    public OutputFormatter() {
-        this(System.out, System.err);
-    }
-
-    public OutputFormatter(PrintStream out, PrintStream err) {
-        this.out = out;
-        this.err = err;
+    public OutputFormatter(ArgumentParser parser) {
+        this.parser = parser;
     }
 
     public void printStart(String url) {
-        out.printf("Start at %s%n", TimeUtils.timestamp());
+        System.out.printf("Start at %s%n", TimeUtils.timestamp());
     }
 
     public void printEnd(String url) {
-        err.printf("Downloaded [%s]%n", url);
-        out.printf("Finished at %s%n", TimeUtils.timestamp());
+        System.out.printf("Downloaded [%s]%n", url);
+        System.out.printf("Finished at %s%n", TimeUtils.timestamp());
     }
 
     public void printConnectionInfo(HttpURLConnection conn) throws IOException {
         int status = conn.getResponseCode();
-        out.printf("Sending request, awaiting response... Status %d %s%n", status, conn.getResponseMessage());
+        System.out.printf("Sending request, awaiting response... Status %d %s%n", status, conn.getResponseMessage());
 
         if (status != HttpURLConnection.HTTP_OK) {
             throw new IOException("Download failed. Status: " + status);
@@ -41,9 +34,9 @@ public class OutputFormatter {
 
     public void printContentSize(int contentLength, String contentType) {
         if (contentLength < 0) {
-            out.printf("Content size: unspecified [%s]%n", contentType);
+            System.out.printf("Content size: unspecified [%s]%n", contentType);
         } else {
-            out.printf("Content size: %d [~%s]%n", contentLength, FormatUtils.convertToMB(contentLength));
+            System.out.printf("Content size: %d [~%s]%n", contentLength, FormatUtils.convertToMB(contentLength));
         }
     }
 

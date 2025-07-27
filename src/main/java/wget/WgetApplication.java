@@ -15,11 +15,31 @@ import wget.utils.FileUtils;
 public class WgetApplication {
 
     private String path = "./downloads/";
-    private final OutputFormatter formatter = new OutputFormatter();
+    private OutputFormatter formatter;
 
     public void run(String[] args) {
         ArgumentParser parser = parseArguments(args);
         if (parser == null) {
+            return;
+        }
+
+        formatter = new OutputFormatter(parser);
+
+        if (parser.hasOption("B")) {
+            String[] urls = parser.getUrls();
+            if (urls.length != 1) {
+                System.err.println("The -B flag supports only one URL.");
+                return;
+            }
+            String url = urls[0];
+            String fileName = FileManager.determineFileName(parser, url);
+
+            System.out.println("Output will be written to \"wget-log\".");
+
+            new Thread(() -> {
+
+            }).start();
+
             return;
         }
 

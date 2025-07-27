@@ -22,7 +22,7 @@ public class ArgumentParser {
 
     private Options defineOptions() {
         Options opts = new Options();
-        opts.addOption("B", false, "Run in background");
+        opts.addOption("B", false, "Download in background and write output to wget-log (only 1 URL supported)");
         opts.addOption("O", true, "Output filename");
         opts.addOption("P", true, "Output directory");
         opts.addOption("i", true, "Input file with URLs");
