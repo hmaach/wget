@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 
+import wget.cli.ArgumentParser;
+import wget.cli.OutputFormatter;
+import wget.utils.FileUtils;
 import wget.utils.TerminalUtils;
 
 public class FileManager {
@@ -37,11 +40,18 @@ public class FileManager {
                 out.write(buffer, 0, bytesRead);
                 downloaded += bytesRead;
 
-                ProgressPrinter.printProgressBar(downloaded, contentLength, barWidth, startNano);
+                OutputFormatter.printProgressBar(downloaded, contentLength, barWidth, startNano);
             }
 
             System.out.print("\n\n");
         }
+    }
+
+    public static String determineFileName(ArgumentParser parser, String url) {
+        if (parser.hasOption("O")) {
+            return parser.getOptionValue("O");
+        }
+        return FileUtils.extractFileName(url);
     }
 
     public String getFullPath() {

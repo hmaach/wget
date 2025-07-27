@@ -2,45 +2,43 @@ package wget.download;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.URL;
+
+import wget.cli.OutputFormatter;
+import wget.network.HttpConnector;
 
 public class Downloader {
 
-    private static final String METHOD = "GET";
+    private final String url;
+    private final String fileName;
+    private final String path;
+    private final String method;
 
-    public void downloadFile(String urlStr, String fileName, String path) throws IOException {
-        try {
-            ProgressPrinter.printTime("start", urlStr);
+    private final OutputFormatter formatter;
 
-            HttpURLConnection conn = openConnection(urlStr);
-
-            ProgressPrinter.printConnectionInfo(conn);
-
-            int contentLength = conn.getContentLength();
-            String contentType = conn.getContentType();
-
-            ProgressPrinter.printContentSize(contentLength, contentType);
-
-            FileManager fileManager = new FileManager(fileName, path);
-            System.out.printf("saving file to: %s%n", fileManager.getFullPath());
-
-            fileManager.save(conn, contentLength);
-
-            ProgressPrinter.printTime("finished", urlStr);
-
-        } catch (IOException e) {
-            throw e;
-        }
+    public Downloader(String url, String fileName, String path, String method, OutputFormatter formatter) {
+        this.url = url;
+        this.fileName = fileName;
+        this.path = path;
+        this.method = method;
+        this.formatter = formatter;
     }
 
-    private HttpURLConnection openConnection(String urlStr) throws IOException {
-        if (urlStr == null || urlStr.trim().isEmpty()) {
-            throw new IllegalArgumentException("URL cannot be null or empty");
-        }
+    public void download() throws IOException {
+        formatter.printStart(url);
 
-        URL url = new URL(urlStr);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod(METHOD);
-        return conn;
+        HttpConnector connector = new HttpConnector(url, method);
+        HttpURLConnection conn = connector.connect();
+
+        formatter.printConnectionInfo(conn);
+
+        int contentLength = conn.getContentLength();
+        String contentType = conn.getContentType();
+        formatter.printContentSize(contentLength, contentType);
+
+        FileManager fileManager = new FileManager(fileName, path);
+        System.out.printf("Saving file to: %s%n", fileManager.getFullPath());
+        fileManager.save(conn, contentLength);
+
+        formatter.printEnd(url);
     }
 }

@@ -45,6 +45,7 @@ Desktop.ini
 *.zip
 
 # Logs and temporary files
+logs/
 *.log
 *.tmp
 *.temp

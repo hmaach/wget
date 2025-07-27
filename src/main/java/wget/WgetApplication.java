@@ -6,72 +6,82 @@ import java.util.List;
 import org.apache.commons.cli.ParseException;
 
 import wget.cli.ArgumentParser;
+import wget.cli.OutputFormatter;
 import wget.download.Downloader;
+import wget.download.FileManager;
 import wget.download.PathManager;
 import wget.utils.FileUtils;
 
 public class WgetApplication {
 
     private String path = "./downloads/";
+    private final OutputFormatter formatter = new OutputFormatter();
 
     public void run(String[] args) {
-        ArgumentParser parser;
-        try {
-            parser = new ArgumentParser(args);
-        } catch (ParseException e) {
-            System.out.println("Error parsing arguments: " + e.getMessage());
+        ArgumentParser parser = parseArguments(args);
+        if (parser == null) {
             return;
         }
 
-        // No URL or input file? Show help.
         if (!parser.hasOption("i") && parser.getUrls().length == 0) {
             parser.printHelp();
             return;
         }
 
-        try {
-            if (parser.hasOption("P")) {
-                path = PathManager.parsePath(parser.getOptionValue("P"));
-            }
-            PathManager.ensureExists(path);
+        handlePath(parser);
 
-        } catch (Exception e) {
-            System.err.printf("Error: parsing saving Directory '%s': %s", path, e.getMessage());
+        String[] urls = getUrls(parser);
+        if (urls == null || urls.length == 0) {
+            return;
         }
 
-        Downloader downloader = new Downloader();
-
-        if (parser.hasOption("i")) {
-            // TODO: I need to download asynchronously
-            List<String> urls;
+        for (String url : urls) {
+            String fileName = FileManager.determineFileName(parser, url);
+            Downloader downloader = new Downloader(url, fileName, path, "GET", formatter);
             try {
-                urls = FileUtils.readFile(parser.getOptionValue("i"));
-                parser.setUrls(urls.toArray(new String[0])); // Creates an empty array to let Java know the target type
+                downloader.download();
             } catch (IOException e) {
-                System.err.printf("ERROR: reading file content: %s", e.getMessage());
+                System.err.printf("ERROR: downloading '%s': %s%n", url, e.getMessage());
             }
-            for (String url : parser.getUrls()) {
-                String fileName = FileUtils.extractFileName(url);
-                try {
-                    downloader.downloadFile(url, fileName, path);
-                } catch (IOException e) {
-                    System.err.printf("ERROR: downloading file '%s': %s", fileName, e.getMessage());
-                }
+        }
+    }
+
+    private ArgumentParser parseArguments(String[] args) {
+        try {
+            return new ArgumentParser(args);
+        } catch (ParseException e) {
+            System.err.printf("Error parsing arguments: %s%n", e.getMessage());
+            return null;
+        }
+    }
+
+    private void handlePath(ArgumentParser parser) {
+        if (parser.hasOption("P")) {
+            try {
+                path = PathManager.parsePath(parser.getOptionValue("P"));
+            } catch (IOException e) {
+                System.err.printf("Error parsing directory path: %s%n", e.getMessage());
+            }
+        }
+
+        try {
+            PathManager.ensureExists(path);
+        } catch (IOException e) {
+            System.err.printf("Error creating directory '%s': %s%n", path, e.getMessage());
+        }
+    }
+
+    private String[] getUrls(ArgumentParser parser) {
+        if (parser.hasOption("i")) {
+            try {
+                List<String> urlsFromFile = FileUtils.readFile(parser.getOptionValue("i"));
+                return urlsFromFile.toArray(new String[0]);
+            } catch (IOException e) {
+                System.err.printf("ERROR: reading file '%s': %s%n", parser.getOptionValue("i"), e.getMessage());
+                return null;
             }
         } else {
-            for (String url : parser.getUrls()) {
-                String fileName;
-                if (parser.hasOption("O")) {
-                    fileName = parser.getOptionValue("O");
-                } else {
-                    fileName = FileUtils.extractFileName(url);
-                }
-                try {
-                    downloader.downloadFile(url, fileName, path);
-                } catch (IOException e) {
-                    System.err.printf("ERROR: downloading file '%s': %s", fileName, e.getMessage());
-                }
-            }
+            return parser.getUrls();
         }
     }
 }

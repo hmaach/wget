@@ -21,14 +21,14 @@ public class ArgumentParser {
     }
 
     private Options defineOptions() {
-        Options options = new Options();
-        options.addOption("B", false, "Run in background");
-        options.addOption("O", true, "Output filename");
-        options.addOption("P", true, "Output directory");
-        options.addOption("i", true, "Input file with URLs");
-        options.addOption(null, "rate-limit", true, "Limit download speed (e.g., 500k, 2M)");
-        options.addOption(null, "mirror", false, "shortcut for -N -r -l inf --no-remove-listing");
-        return options;
+        Options opts = new Options();
+        opts.addOption("B", false, "Run in background");
+        opts.addOption("O", true, "Output filename");
+        opts.addOption("P", true, "Output directory");
+        opts.addOption("i", true, "Input file with URLs");
+        opts.addOption(null, "rate-limit", true, "Limit download speed (e.g., 500k, 2M)");
+        opts.addOption(null, "mirror", false, "shortcut for -N -r -l inf --no-remove-listing");
+        return opts;
     }
 
     public boolean hasOption(String opt) {
@@ -49,6 +49,6 @@ public class ArgumentParser {
 
     public void printHelp() {
         HelpFormatter formatter = new HelpFormatter();
-        formatter.printHelp("wget [OPTION]... [URL]...", options);
+        formatter.printHelp("./wget [OPTION]... [URL]...", options);
     }
 }
