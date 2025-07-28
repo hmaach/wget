@@ -12,6 +12,7 @@ public class Downloader {
     private final String fileName;
     private final String path;
     private final String method;
+    private final Boolean in_background;
 
     private final OutputFormatter formatter;
 
@@ -21,6 +22,7 @@ public class Downloader {
         this.path = path;
         this.method = method;
         this.formatter = formatter;
+        this.in_background = this.formatter.parser.hasOption("B");
     }
 
     public void download() throws IOException {
@@ -36,8 +38,13 @@ public class Downloader {
         formatter.printContentSize(contentLength, contentType);
 
         FileManager fileManager = new FileManager(fileName, path);
-        System.out.printf("Saving file to: %s%n", fileManager.getFullPath());
-        fileManager.save(conn, contentLength);
+        final String message = String.format("Saving file to: %s%n", fileManager.getFullPath());
+        if (this.in_background) {
+            this.formatter.logger.log(message);
+        } else {
+            System.out.print(message);
+        }
+        fileManager.save(conn, contentLength, this.in_background);
 
         formatter.printEnd(url);
     }

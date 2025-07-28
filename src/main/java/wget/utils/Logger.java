@@ -6,14 +6,14 @@ import java.io.PrintWriter;
 
 import wget.download.PathManager;
 
-public class LoggerUtils {
+public class Logger {
 
-    private final String FILE_NAME = "wget";
+    private final String FILE_NAME = "wget-log";
     private final String PATH = "./logs/" + FILE_NAME + ".log";
 
-    public LoggerUtils() throws IOException {
+    public Logger() throws IOException {
         try {
-            PathManager.ensureExists("./logs/"); // Ensure the directory exists
+            PathManager.ensureExists("./logs/");
         } catch (IOException e) {
             throw new IOException("Error creating logs directory: " + e.getMessage());
         }

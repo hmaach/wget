@@ -23,7 +23,14 @@ public class WgetApplication {
             return;
         }
 
-        formatter = new OutputFormatter(parser);
+        try {
+            formatter = new OutputFormatter(parser);
+        } catch (Exception e) {
+            System.err.printf("ERROR: %s%n", e.getMessage());
+            return;
+        }
+
+        handlePath(parser);
 
         if (parser.hasOption("B")) {
             String[] urls = parser.getUrls();
@@ -37,7 +44,12 @@ public class WgetApplication {
             System.out.println("Output will be written to \"wget-log\".");
 
             new Thread(() -> {
-
+                Downloader downloader = new Downloader(url, fileName, path, "GET", formatter);
+                try {
+                    downloader.download();
+                } catch (IOException e) {
+                    System.err.printf("ERROR: downloading '%s': %s%n", url, e.getMessage());
+                }
             }).start();
 
             return;
@@ -47,8 +59,6 @@ public class WgetApplication {
             parser.printHelp();
             return;
         }
-
-        handlePath(parser);
 
         String[] urls = getUrls(parser);
         if (urls == null || urls.length == 0) {
