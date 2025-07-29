@@ -26,7 +26,7 @@ public class FileManager {
         this.path = PathManager.normalizePath(path);
     }
 
-    public void save(HttpURLConnection conn, int contentLength, boolean in_background) throws IOException {
+    public void save(HttpURLConnection conn, int contentLength, boolean in_background, RateLimiter rateLimiter) throws IOException {
         try (InputStream in = conn.getInputStream(); FileOutputStream out = new FileOutputStream(path + fileName)) {
 
             byte[] buffer = new byte[BUFFER_SIZE];
@@ -40,6 +40,15 @@ public class FileManager {
                 out.write(buffer, 0, bytesRead);
                 downloaded += bytesRead;
 
+                if (rateLimiter != null) {
+                    try {
+                        rateLimiter.throttle(bytesRead);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException("Download interrupted", e);
+                    }
+                }
+
                 if (!in_background) {
                     OutputFormatter.printProgressBar(downloaded, contentLength, barWidth, startNano);
                 }
@@ -49,6 +58,10 @@ public class FileManager {
                 System.out.print("\n\n");
             }
         }
+    }
+
+    public void save(HttpURLConnection conn, int contentLength, boolean in_background) throws IOException {
+        save(conn, contentLength, in_background, null);
     }
 
     public static String determineFileName(ArgumentParser parser, String url) {

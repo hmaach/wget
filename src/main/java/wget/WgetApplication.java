@@ -10,12 +10,14 @@ import wget.cli.OutputFormatter;
 import wget.download.Downloader;
 import wget.download.FileManager;
 import wget.download.PathManager;
+import wget.download.RateLimiter;
 import wget.utils.FileUtils;
 
 public class WgetApplication {
 
     private String path = "./downloads/";
     private OutputFormatter formatter;
+    private RateLimiter rateLimiter;
 
     public void run(String[] args) {
         ArgumentParser parser = parseArguments(args);
@@ -31,6 +33,7 @@ public class WgetApplication {
         }
 
         handlePath(parser);
+        handleRateLimit(parser);
 
         if (parser.hasOption("B")) {
             String[] urls = parser.getUrls();
@@ -44,7 +47,7 @@ public class WgetApplication {
             System.out.println("Output will be written to \"wget-log\".");
 
             new Thread(() -> {
-                Downloader downloader = new Downloader(url, fileName, path, "GET", formatter);
+                Downloader downloader = new Downloader(url, fileName, path, "GET", formatter, rateLimiter);
                 try {
                     downloader.download();
                 } catch (IOException e) {
@@ -67,7 +70,7 @@ public class WgetApplication {
 
         for (String url : urls) {
             String fileName = FileManager.determineFileName(parser, url);
-            Downloader downloader = new Downloader(url, fileName, path, "GET", formatter);
+            Downloader downloader = new Downloader(url, fileName, path, "GET", formatter, rateLimiter);
             try {
                 downloader.download();
             } catch (IOException e) {
@@ -98,6 +101,18 @@ public class WgetApplication {
             PathManager.ensureExists(path);
         } catch (IOException e) {
             System.err.printf("Error creating directory '%s': %s%n", path, e.getMessage());
+        }
+    }
+
+    private void handleRateLimit(ArgumentParser parser) {
+        if (parser.hasOption("rate-limit")) {
+            try {
+                String rateLimitStr = parser.getOptionValue("rate-limit");
+                rateLimiter = new RateLimiter(rateLimitStr);
+                System.out.printf("Rate limiting enabled: %d bytes/sec%n", rateLimiter.getBytesPerSecond());
+            } catch (IllegalArgumentException e) {
+                System.err.printf("Error parsing rate limit: %s%n", e.getMessage());
+            }
         }
     }
 
