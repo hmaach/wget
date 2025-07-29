@@ -8,7 +8,6 @@ import wget.utils.Logger;
 import wget.utils.TimeUtils;
 
 public class OutputFormatter {
-
     public final ArgumentParser parser;
     public final Logger logger;
 

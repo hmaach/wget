@@ -18,22 +18,25 @@ public class WgetApplication {
     private String path = "./downloads/";
     private OutputFormatter formatter;
     private RateLimiter rateLimiter;
+    private ArgumentParser parser;
 
     public void run(String[] args) {
-        ArgumentParser parser = parseArguments(args);
-        if (parser == null) {
+        try {
+            this.parser =  new ArgumentParser(args);
+        } catch (ParseException e) {
+            System.err.printf("Error parsing arguments: %s%n", e.getMessage());
             return;
         }
 
         try {
-            formatter = new OutputFormatter(parser);
+            this.formatter = new OutputFormatter(this.parser);
         } catch (Exception e) {
             System.err.printf("ERROR: %s%n", e.getMessage());
             return;
         }
 
-        handlePath(parser);
-        handleRateLimit(parser);
+        handlePath();
+        handleRateLimit();
 
         if (parser.hasOption("B")) {
             String[] urls = parser.getUrls();
@@ -63,7 +66,7 @@ public class WgetApplication {
             return;
         }
 
-        String[] urls = getUrls(parser);
+        String[] urls = getUrls();
         if (urls == null || urls.length == 0) {
             return;
         }
@@ -79,16 +82,7 @@ public class WgetApplication {
         }
     }
 
-    private ArgumentParser parseArguments(String[] args) {
-        try {
-            return new ArgumentParser(args);
-        } catch (ParseException e) {
-            System.err.printf("Error parsing arguments: %s%n", e.getMessage());
-            return null;
-        }
-    }
-
-    private void handlePath(ArgumentParser parser) {
+    private void handlePath() {
         if (parser.hasOption("P")) {
             try {
                 path = PathManager.parsePath(parser.getOptionValue("P"));
@@ -104,7 +98,7 @@ public class WgetApplication {
         }
     }
 
-    private void handleRateLimit(ArgumentParser parser) {
+    private void handleRateLimit() {
         if (parser.hasOption("rate-limit")) {
             try {
                 String rateLimitStr = parser.getOptionValue("rate-limit");
@@ -116,7 +110,7 @@ public class WgetApplication {
         }
     }
 
-    private String[] getUrls(ArgumentParser parser) {
+    private String[] getUrls() {
         if (parser.hasOption("i")) {
             try {
                 List<String> urlsFromFile = FileUtils.readFile(parser.getOptionValue("i"));
