@@ -11,6 +11,7 @@ import wget.download.Downloader;
 import wget.download.FileManager;
 import wget.download.PathManager;
 import wget.download.RateLimiter;
+import wget.mirror.WebsiteMirror;
 import wget.utils.FileUtils;
 
 public class WgetApplication {
@@ -22,7 +23,7 @@ public class WgetApplication {
 
     public void run(String[] args) {
         try {
-            this.parser =  new ArgumentParser(args);
+            this.parser = new ArgumentParser(args);
         } catch (ParseException e) {
             System.err.printf("Error parsing arguments: %s%n", e.getMessage());
             return;
@@ -38,29 +39,19 @@ public class WgetApplication {
         handlePath();
         handleRateLimit();
 
-        if (parser.hasOption("B")) {
-            String[] urls = parser.getUrls();
-            if (urls.length != 1) {
-                System.err.println("The -B flag supports only one URL.");
-                return;
-            }
-            String url = urls[0];
-            String fileName = FileManager.determineFileName(parser, url);
-
-            System.out.println("Output will be written to \"wget-log\".");
-
-            new Thread(() -> {
-                Downloader downloader = new Downloader(url, fileName, path, "GET", formatter, rateLimiter);
-                try {
-                    downloader.download();
-                } catch (IOException e) {
-                    System.err.printf("ERROR: downloading '%s': %s%n", url, e.getMessage());
-                }
-            }).start();
-
+        // Handle mirroring
+        if (parser.hasOption("mirror")) {
+            handleMirroring();
             return;
         }
 
+        // Handle background download
+        if (parser.hasOption("B")) {
+            handleBackgroundDownload();
+            return;
+        }
+
+        // Handle regular downloads
         if (!parser.hasOption("i") && parser.getUrls().length == 0) {
             parser.printHelp();
             return;
@@ -80,6 +71,31 @@ public class WgetApplication {
                 System.err.printf("ERROR: downloading '%s': %s%n", url, e.getMessage());
             }
         }
+    }
+
+    private void handleMirroring() {
+        
+    }
+
+    private void handleBackgroundDownload() {
+        String[] urls = parser.getUrls();
+        if (urls.length != 1) {
+            System.err.println("The -B flag supports only one URL.");
+            return;
+        }
+        String url = urls[0];
+        String fileName = FileManager.determineFileName(parser, url);
+
+        System.out.println("Output will be written to \"wget-log\".");
+
+        new Thread(() -> {
+            Downloader downloader = new Downloader(url, fileName, path, "GET", formatter, rateLimiter);
+            try {
+                downloader.download();
+            } catch (IOException e) {
+                System.err.printf("ERROR: downloading '%s': %s%n", url, e.getMessage());
+            }
+        }).start();
     }
 
     private void handlePath() {
