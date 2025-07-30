@@ -74,7 +74,43 @@ public class WgetApplication {
     }
 
     private void handleMirroring() {
-        
+        String[] urls = parser.getUrls();
+        if (urls.length != 1) {
+            System.err.println("Mirroring requires exactly one URL.");
+            return;
+        }
+
+        String url = urls[0];
+
+        try {
+            // Parse rejected extensions
+            List<String> rejectedExtensions = null;
+            if (parser.hasOption("R")) {
+                rejectedExtensions = WebsiteMirror.parseCommaSeparatedList(parser.getOptionValue("R"));
+                System.out.printf("Rejecting file types: %s%n", rejectedExtensions);
+            }
+
+            // Parse excluded paths
+            List<String> excludedPaths = null;
+            if (parser.hasOption("X")) {
+                excludedPaths = WebsiteMirror.parseCommaSeparatedList(parser.getOptionValue("X"));
+                System.out.printf("Excluding paths: %s%n", excludedPaths);
+            }
+
+            // Check if link conversion is requested
+            boolean convertLinks = parser.hasOption("convert-links");
+            if (convertLinks) {
+                System.out.println("Link conversion enabled for offline viewing.");
+            }
+
+            // Create and run the mirror
+            WebsiteMirror mirror = new WebsiteMirror(url, rateLimiter,
+                    rejectedExtensions, excludedPaths, convertLinks);
+            mirror.mirror();
+
+        } catch (Exception e) {
+            System.err.printf("ERROR: mirroring '%s': %s%n", url, e.getMessage());
+        }
     }
 
     private void handleBackgroundDownload() {
