@@ -3,12 +3,12 @@ package wget.mirror;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -17,6 +17,11 @@ import org.jsoup.select.Elements;
 
 public class LinkConverter {
     private final Map<String, String> urlToLocalPathMap;
+
+    // Pattern to match CSS url() references
+    private static final Pattern CSS_URL_PATTERN = Pattern.compile(
+            "url\\s*\\(\\s*['\"]?([^'\"\\)\\s]+)['\"]?\\s*\\)",
+            Pattern.CASE_INSENSITIVE);
 
     public LinkConverter(Map<String, String> urlToLocalPathMap) {
         this.urlToLocalPathMap = urlToLocalPathMap;
@@ -87,12 +92,55 @@ public class LinkConverter {
                 }
             }
 
+            // Convert URLs in <style> tags
+            Elements styleTags = doc.select("style");
+            for (Element styleTag : styleTags) {
+                String cssContent = styleTag.html();
+                String convertedCss = convertUrlsInCss(cssContent, currentFilePath);
+                if (!cssContent.equals(convertedCss)) {
+                    styleTag.html(convertedCss);
+                    modified = true;
+                }
+            }
+
+            // Convert URLs in inline style attributes
+            Elements elementsWithStyle = doc.select("[style]");
+            for (Element element : elementsWithStyle) {
+                String styleContent = element.attr("style");
+                String convertedStyle = convertUrlsInCss(styleContent, currentFilePath);
+                if (!styleContent.equals(convertedStyle)) {
+                    element.attr("style", convertedStyle);
+                    modified = true;
+                }
+            }
+
             return modified ? doc.outerHtml() : htmlContent;
 
         } catch (Exception e) {
             System.err.println("Warning: Could not convert links in HTML: " + e.getMessage());
             return htmlContent;
         }
+    }
+
+    private String convertUrlsInCss(String cssContent, String currentFilePath) {
+        if (cssContent == null || cssContent.trim().isEmpty()) {
+            return cssContent;
+        }
+
+        StringBuffer result = new StringBuffer();
+        Matcher matcher = CSS_URL_PATTERN.matcher(cssContent);
+
+        while (matcher.find()) {
+            String originalUrl = matcher.group(1);
+            String cleanUrl = originalUrl.trim();
+
+            String convertedUrl = convertUrl(cleanUrl, currentFilePath);
+            String replacement = "url(" + convertedUrl + ")";
+            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(result);
+
+        return result.toString();
     }
 
     private String convertUrl(String url, String currentFilePath) {
@@ -118,18 +166,11 @@ public class LinkConverter {
             return urlToLocalPathMap.get(url);
         }
 
-        try {
-            URL urlObj = new URL(url);
-            String path = urlObj.getPath();
-
-            // Look for files that end with this path
-            for (Map.Entry<String, String> entry : urlToLocalPathMap.entrySet()) {
-                if (entry.getKey().endsWith(path) && !path.isEmpty()) {
-                    return entry.getValue();
-                }
+        // Look for files that end with this path
+        for (Map.Entry<String, String> entry : urlToLocalPathMap.entrySet()) {
+            if (entry.getKey().endsWith(url) && !url.isEmpty()) {
+                return entry.getValue();
             }
-        } catch (MalformedURLException e) {
-            return null;
         }
 
         return null;
@@ -145,7 +186,7 @@ public class LinkConverter {
             }
 
             Path relativePath = from.relativize(to);
-            return relativePath.toString();
+            return "'" + relativePath.toString() + "'";
         } catch (Exception e) {
             return toPath;
         }

@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -18,6 +20,11 @@ public class HtmlParser {
     private final Set<String> visitedUrls = new HashSet<>();
     private final List<String> rejectedExtensions;
     private final List<String> excludedPaths;
+
+    // Pattern to match CSS url() references
+    private static final Pattern CSS_URL_PATTERN = Pattern.compile(
+            "url\\s*\\(\\s*['\"]?([^'\"\\)\\s]+)['\"]?\\s*\\)",
+            Pattern.CASE_INSENSITIVE);
 
     public HtmlParser() {
         this.rejectedExtensions = new ArrayList<>();
@@ -76,11 +83,60 @@ public class HtmlParser {
                 }
             }
 
+            // Extract URLs from CSS content in <style> tags
+            Elements styleTags = doc.select("style");
+            for (Element styleTag : styleTags) {
+                String cssContent = styleTag.html();
+                Set<String> cssUrls = extractUrlsFromCss(cssContent, base);
+                for (String cssUrl : cssUrls) {
+                    if (shouldIncludeUrl(cssUrl)) {
+                        discoveredUrls.add(cssUrl);
+                    }
+                }
+            }
+
+            // Extract URLs from inline style attributes
+            Elements elementsWithStyle = doc.select("[style]");
+            for (Element element : elementsWithStyle) {
+                String styleContent = element.attr("style");
+                Set<String> cssUrls = extractUrlsFromCss(styleContent, base);
+                for (String cssUrl : cssUrls) {
+                    if (shouldIncludeUrl(cssUrl)) {
+                        discoveredUrls.add(cssUrl);
+                    }
+                }
+            }
+
         } catch (Exception e) {
             throw new IOException("Error parsing HTML document: " + e.getMessage(), e);
         }
 
         return discoveredUrls;
+    }
+
+    private Set<String> extractUrlsFromCss(String cssContent, URL base) {
+        Set<String> urls = new HashSet<>();
+
+        if (cssContent == null || cssContent.trim().isEmpty()) {
+            return urls;
+        }
+
+        Matcher matcher = CSS_URL_PATTERN.matcher(cssContent);
+        while (matcher.find()) {
+            String url = matcher.group(1);
+
+            // Clean up the URL (remove quotes if any)
+            url = url.replaceAll("^['\"]|['\"]$", "").trim();
+
+            if (!url.isEmpty()) {
+                String absoluteUrl = resolveUrl(url, base);
+                if (absoluteUrl != null) {
+                    urls.add(absoluteUrl);
+                }
+            }
+        }
+
+        return urls;
     }
 
     private String resolveUrl(String url, URL base) {
