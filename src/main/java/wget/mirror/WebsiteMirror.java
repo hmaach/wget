@@ -17,26 +17,23 @@ import java.util.Set;
 
 import wget.download.FileManager;
 import wget.download.PathManager;
-import wget.download.RateLimiter;
 import wget.network.HttpConnector;
 
 public class WebsiteMirror {
     private final String baseUrl;
     private final String mirrorDirectory;
     private final HtmlParser htmlParser;
-    private final RateLimiter rateLimiter;
     private final boolean convertLinks;
 
     private final Queue<String> urlQueue = new LinkedList<>();
     private final Map<String, String> urlToLocalPathMap = new HashMap<>();
 
-    public WebsiteMirror(String url, RateLimiter rateLimiter,
+    public WebsiteMirror(String url,
             List<String> rejectedExtensions, List<String> excludedPaths,
             boolean convertLinks) throws MalformedURLException {
         this.baseUrl = normalizeUrl(url);
         this.mirrorDirectory = createMirrorDirectory(this.baseUrl);
         this.htmlParser = new HtmlParser(rejectedExtensions, excludedPaths);
-        this.rateLimiter = rateLimiter;
         this.convertLinks = convertLinks;
     }
 
@@ -61,6 +58,12 @@ public class WebsiteMirror {
             } catch (IOException e) {
                 System.err.printf("Error processing %s: %s%n", currentUrl, e.getMessage());
             }
+        }
+
+        if (convertLinks) {
+            System.out.println("Converting links for offline viewing...");
+            LinkConverter linkConverter = new LinkConverter(urlToLocalPathMap);
+            linkConverter.convertAllFiles();
         }
 
         System.out.printf("Mirror complete. %d files downloaded.%n", urlToLocalPathMap.size());
@@ -122,7 +125,7 @@ public class WebsiteMirror {
 
             FileManager fileManager = new FileManager(fileName,
                     localFilePath.getParent().toString() + "/");
-            fileManager.save(conn, contentLength, true, rateLimiter);
+            fileManager.save(conn, contentLength, true);
 
             System.out.printf("Downloaded: %s -> %s%n", url, localPath);
             return localPath;

@@ -104,7 +104,7 @@ public class WgetApplication {
             }
 
             // Create and run the mirror
-            WebsiteMirror mirror = new WebsiteMirror(url, rateLimiter,
+            WebsiteMirror mirror = new WebsiteMirror(url,
                     rejectedExtensions, excludedPaths, convertLinks);
             mirror.mirror();
 
