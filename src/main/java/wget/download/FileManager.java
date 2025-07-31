@@ -26,7 +26,7 @@ public class FileManager {
         this.path = PathManager.normalizePath(path);
     }
 
-    public void save(HttpURLConnection conn, int contentLength, boolean in_background, RateLimiter rateLimiter) throws IOException {
+    public void save(HttpURLConnection conn, int contentLength, boolean in_background, boolean in_async, RateLimiter rateLimiter) throws IOException {
         try (InputStream in = conn.getInputStream(); FileOutputStream out = new FileOutputStream(path + fileName)) {
 
             byte[] buffer = new byte[BUFFER_SIZE];
@@ -49,19 +49,19 @@ public class FileManager {
                     }
                 }
 
-                if (!in_background) {
+                if (!in_background && !in_async) {
                     OutputFormatter.printProgressBar(downloaded, contentLength, barWidth, startNano);
                 }
             }
 
-            if (!in_background) {
+            if (!in_background && !in_async) {
                 System.out.print("\n\n");
             }
         }
     }
 
     public void save(HttpURLConnection conn, int contentLength, boolean in_background) throws IOException {
-        save(conn, contentLength, in_background, null);
+        save(conn, contentLength, in_background, false, null);
     }
 
     public static String determineFileName(ArgumentParser parser, String url) {
