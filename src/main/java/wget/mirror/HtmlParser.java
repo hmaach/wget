@@ -16,7 +16,6 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 public class HtmlParser {
-
     private final Set<String> visitedUrls = new HashSet<>();
     private final List<String> rejectedExtensions;
     private final List<String> excludedPaths;

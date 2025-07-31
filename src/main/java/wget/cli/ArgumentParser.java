@@ -50,10 +50,6 @@ public class ArgumentParser {
         return this.urls;
     }
 
-    public void setUrls(String[] urls) {
-        this.urls = urls;
-    }
-
     public void printHelp() {
         HelpFormatter formatter = new HelpFormatter();
         formatter.printHelp("./wget [OPTION]... [URL]...",

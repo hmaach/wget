@@ -3,73 +3,43 @@ package wget;
 import java.io.IOException;
 import java.util.List;
 
-import org.apache.commons.cli.ParseException;
-
 import wget.cli.ArgumentParser;
 import wget.cli.OutputFormatter;
 import wget.download.Downloader;
 import wget.download.FileManager;
-import wget.download.PathManager;
 import wget.download.RateLimiter;
 import wget.mirror.WebsiteMirror;
 import wget.utils.FileUtils;
 
 public class WgetApplication {
-
     private String path = "./downloads/";
     private OutputFormatter formatter;
     private RateLimiter rateLimiter;
     private ArgumentParser parser;
 
     public void run(String[] args) {
-        try {
-            this.parser = new ArgumentParser(args);
-        } catch (ParseException e) {
-            System.err.printf("Error parsing arguments: %s%n", e.getMessage());
+        if (!initialize(args))
             return;
-        }
 
-        try {
-            this.formatter = new OutputFormatter(this.parser);
-        } catch (Exception e) {
-            System.err.printf("ERROR: %s%n", e.getMessage());
-            return;
-        }
-
-        handlePath();
-        handleRateLimit();
-
-        // Handle mirroring
         if (parser.hasOption("mirror")) {
             handleMirroring();
-            return;
-        }
-
-        // Handle background download
-        if (parser.hasOption("B")) {
+        } else if (parser.hasOption("B")) {
             handleBackgroundDownload();
-            return;
+        } else {
+            handleRegularDownloads();
         }
+    }
 
-        // Handle regular downloads
-        if (!parser.hasOption("i") && parser.getUrls().length == 0) {
-            parser.printHelp();
-            return;
-        }
-
-        String[] urls = getUrls();
-        if (urls == null || urls.length == 0) {
-            return;
-        }
-
-        for (String url : urls) {
-            String fileName = FileManager.determineFileName(parser, url);
-            Downloader downloader = new Downloader(url, fileName, path, "GET", formatter, rateLimiter);
-            try {
-                downloader.download();
-            } catch (IOException e) {
-                System.err.printf("ERROR: downloading '%s': %s%n", url, e.getMessage());
-            }
+    private boolean initialize(String[] args) {
+        try {
+            this.parser = new ArgumentParser(args);
+            this.formatter = new OutputFormatter(this.parser);
+            handlePath();
+            handleRateLimit();
+            return true;
+        } catch (Exception e) {
+            System.err.printf("Error: %s%n", e.getMessage());
+            return false;
         }
     }
 
@@ -119,6 +89,7 @@ public class WgetApplication {
             System.err.println("The -B flag supports only one URL.");
             return;
         }
+
         String url = urls[0];
         String fileName = FileManager.determineFileName(parser, url);
 
@@ -134,17 +105,35 @@ public class WgetApplication {
         }).start();
     }
 
+    private void handleRegularDownloads() {
+        String[] urls = getUrls();
+        if (urls == null || urls.length == 0) {
+            parser.printHelp();
+            return;
+        }
+
+        for (String url : urls) {
+            try {
+                String fileName = FileManager.determineFileName(parser, url);
+                Downloader downloader = new Downloader(url, fileName, path, "GET", formatter, rateLimiter);
+                downloader.download();
+            } catch (IOException e) {
+                System.err.printf("ERROR: downloading '%s': %s%n", url, e.getMessage());
+            }
+        }
+    }
+
     private void handlePath() {
         if (parser.hasOption("P")) {
             try {
-                path = PathManager.parsePath(parser.getOptionValue("P"));
+                path = FileUtils.parsePath(parser.getOptionValue("P"));
             } catch (IOException e) {
                 System.err.printf("Error parsing directory path: %s%n", e.getMessage());
             }
         }
 
         try {
-            PathManager.ensureExists(path);
+            FileUtils.ensureExists(path);
         } catch (IOException e) {
             System.err.printf("Error creating directory '%s': %s%n", path, e.getMessage());
         }

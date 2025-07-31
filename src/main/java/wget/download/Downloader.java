@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 
 import wget.cli.OutputFormatter;
-import wget.network.HttpConnector;
+import wget.utils.NetworkUtils;
 
 public class Downloader {
 
@@ -35,8 +35,7 @@ public class Downloader {
     public void download() throws IOException {
         formatter.printStart(url);
 
-        HttpConnector connector = new HttpConnector(url, method);
-        HttpURLConnection conn = connector.connect();
+        HttpURLConnection conn = NetworkUtils.createConnection(url, method);
 
         formatter.printConnectionInfo(conn);
 
@@ -45,13 +44,13 @@ public class Downloader {
         formatter.printContentSize(contentLength, contentType);
 
         FileManager fileManager = new FileManager(fileName, path);
-        final String message = String.format("Saving file to: %s%n", fileManager.getFullPath());
+        final String message = String.format("Saving file to: %s%n", path + fileName);
         if (this.in_background) {
             this.formatter.logger.log(message);
         } else {
             System.out.print(message);
         }
-        
+
         // Pass rate limiter to file manager
         fileManager.save(conn, contentLength, this.in_background, this.rateLimiter);
 

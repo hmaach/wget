@@ -8,31 +8,34 @@ import wget.utils.Logger;
 import wget.utils.TimeUtils;
 
 public class OutputFormatter {
+    private final boolean isBackground;
     public final ArgumentParser parser;
     public final Logger logger;
 
     public OutputFormatter(ArgumentParser parser) throws IOException {
-        this.parser = parser;
         this.logger = new Logger();
+        this.parser = parser;
+        this.isBackground = parser.hasOption("B");
+    }
+
+    private void output(String message) throws IOException {
+        if (isBackground) {
+            logger.log(message);
+        } else {
+            System.out.print(message);
+        }
     }
 
     public void printStart(String url) throws IOException {
-        final String message = String.format("Start at %s%n", TimeUtils.timestamp());
-        if (this.parser.hasOption("-B")) {
-            logger.log(message);
-            return;
-        }
-        System.out.print(message);
+        output(String.format("Start at %s%n", TimeUtils.timestamp()));
     }
 
     public void printEnd(String url) throws IOException {
-        final String message = String.format("Downloaded [%s]%nFinished at %s%n", url, TimeUtils.timestamp());
-        if (this.parser.hasOption("-B")) {
-            logger.log(message);
+        String message = String.format("Downloaded [%s]%nFinished at %s%n", url, TimeUtils.timestamp());
+        output(message);
+        if (isBackground) {
             logger.log("------------------------------------------------\n");
-            return;
         }
-        System.out.print(message);
     }
 
     public void printConnectionInfo(HttpURLConnection conn) throws IOException {
@@ -42,11 +45,7 @@ public class OutputFormatter {
                 status,
                 conn.getResponseMessage());
 
-        if (this.parser.hasOption("-B")) {
-            logger.log(message);
-            return;
-        }
-        System.out.print(message);
+        output(message);
 
         if (status != HttpURLConnection.HTTP_OK) {
             throw new IOException("Download failed. Status: " + status);
@@ -61,11 +60,7 @@ public class OutputFormatter {
             message = String.format("Content size: %d [~%s]%n", contentLength, FormatUtils.convertToMB(contentLength));
         }
 
-        if (this.parser.hasOption("-B")) {
-            logger.log(message);
-            return;
-        }
-        System.out.print(message);
+        output(message);
     }
 
     public static void printProgressBar(long downloaded, long contentLength, int barWidth, long startNano) {
@@ -96,7 +91,7 @@ public class OutputFormatter {
                 ? (long) ((contentLength - downloaded) / speedBytesPerSec)
                 : 0;
 
-        System.out.printf("\r %s / %s %s %6.2f%% %4.2f MiB/s %ds",
+        System.out.printf("\r %s / %s %s %6.2f%% %4.2f MiB/s %ds  ",
                 downloadedStr,
                 totalStr,
                 bar.toString(),

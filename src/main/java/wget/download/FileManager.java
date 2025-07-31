@@ -23,7 +23,7 @@ public class FileManager {
         }
 
         this.fileName = fileName;
-        this.path = PathManager.normalizePath(path);
+        this.path = FileUtils.normalizePath(path);
     }
 
     public void save(HttpURLConnection conn, int contentLength, boolean in_background, RateLimiter rateLimiter) throws IOException {
@@ -60,18 +60,10 @@ public class FileManager {
         }
     }
 
-    public void save(HttpURLConnection conn, int contentLength, boolean in_background) throws IOException {
-        save(conn, contentLength, in_background, null);
-    }
-
     public static String determineFileName(ArgumentParser parser, String url) {
         if (parser.hasOption("O")) {
             return parser.getOptionValue("O");
         }
         return FileUtils.extractFileName(url);
-    }
-
-    public String getFullPath() {
-        return path + fileName;
     }
 }
