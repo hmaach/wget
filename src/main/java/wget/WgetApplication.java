@@ -7,6 +7,7 @@ import java.util.List;
 
 import wget.cli.ArgumentParser;
 import wget.cli.OutputFormatter;
+import wget.download.AsyncDownloader;
 import wget.download.Downloader;
 import wget.download.FileManager;
 import wget.download.RateLimiter;
@@ -23,7 +24,9 @@ public class WgetApplication {
         if (!initialize(args))
             return;
 
-        if (parser.hasOption("mirror")) {
+        if (parser.hasOption("i")) {
+            handleAsyncDownload();
+        } else if (parser.hasOption("mirror")) {
             handleMirroring();
         } else if (parser.hasOption("B")) {
             handleBackgroundDownload();
@@ -43,6 +46,25 @@ public class WgetApplication {
             System.err.printf("Error: %s%n", e.getMessage());
             return false;
         }
+    }
+
+    private void handleAsyncDownload() {
+        AsyncDownloader asyncDownloader = new AsyncDownloader();
+
+        List<String> urlsFromFile;
+        try {
+            urlsFromFile = FileUtils.readFile(parser.getOptionValue("i"));
+        } catch (IOException e) {
+            System.err.printf("ERROR: reading file '%s': %s%n", parser.getOptionValue("i"), e.getMessage());
+            return;
+        }
+
+        for (String url : urlsFromFile) {
+            String fileName = FileManager.determineFileName(parser, url);
+            asyncDownloader.downloadAsync(url, fileName, path, "GET", formatter, rateLimiter);
+        }
+
+        asyncDownloader.shutdownAndAwaitTermination();
     }
 
     private void handleMirroring() {
