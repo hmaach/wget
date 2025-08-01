@@ -2,6 +2,11 @@
 
 A Java implementation of the `wget` utility for downloading files from the web with support for HTTP/HTTPS protocols.
 
+## Authors
+
+- Yassine Elmach
+- Hamza Maach
+
 ## Features
 
 - ✅ Download single files from URLs
@@ -13,6 +18,46 @@ A Java implementation of the `wget` utility for downloading files from the web w
 - ✅ Website mirroring (`--mirror`)
 - ✅ Progress tracking with visual progress bar
 - ✅ Concurrent/asynchronous downloads (*partial/in progress*)
+
+
+## Project Structure
+
+```
+wget/
+├── docs/                                      # Documentation files
+├── downloads/                                 # Default save directory for downloaded files
+├── src/
+│   └── main/
+│       └── java/
+│           └── wget/
+│               ├── cli/                       # Command-line interface & output formatting
+│               │   ├── ArgumentParser.java   # Parse CLI arguments (-B, -i, --mirror, etc.)
+│               │   └── OutputFormatter.java  # Progress bars, timestamps, status messages
+│               │
+│               ├── download/                  # Core downloading engine
+│               │   ├── AsyncDownloader.java  # Multi-threaded downloads (max 5 concurrent)
+│               │   ├── Downloader.java       # HTTP download logic with rate limiting
+│               │   ├── FileManager.java      # File I/O operations and path management
+│               │   └── RateLimiter.java      # Bandwidth throttling (500k, 2M formats)
+│               │
+│               ├── mirror/                    # Website mirroring & crawling
+│               │   ├── WebsiteMirror.java    # BFS website crawler with domain filtering
+│               │   ├── HtmlParser.java       # JSoup-based HTML parsing & link extraction
+│               │   └── LinkConverter.java    # Convert absolute URLs to relative paths
+│               │
+│               ├── utils/                     # Utility classes & helpers
+│               │   ├── FileUtils.java        # File operations & path utilities
+│               │   ├── NetworkUtils.java     # HTTP connection management
+│               │   ├── FormatUtils.java      # Data formatting (bytes, progress)
+│               │   └── TimeUtils.java        # Timestamp utilities
+│               │
+│               ├── Main.java                 # Program entry point → calls WgetApplication
+│               └── WgetApplication.java      # Application orchestration & mode selection
+│
+├── pom.xml                                   # Maven dependencies & build configuration
+└── wget                                      # Bash launcher script (./wget [options] [urls])|
+
+```
 
 ## Requirements
 
@@ -43,7 +88,7 @@ chmod +x wget
 Now you can run the project using:
 
 ```bash
-./wget <arguments>
+./wget [options] [urls]
 ```
 
 ---
@@ -136,28 +181,6 @@ finished at 2025-07-26 14:30:26
 
 ---
 
-## Project Structure
-
-```
-wget/
-├── src/
-│   ├── main/java/wget/
-│   │   ├── Main.java                # Entry point
-│   │   ├── WgetApplication.java     # Main application logic
-│   │   ├── cli/                  # Command line parsing
-│   │   ├── download/             # Core download functionality
-│   │   ├── network/              # HTTP operations
-│   │   ├── mirror/               # Website mirroring
-│   │   ├── concurrent/           # Multi-threading support
-│   │   ├── utils/                # Utility functions
-│   │   └── models/               # Data models
-├── test/             # Unit tests
-├── pom.xml           # Maven build file
-└── wget              # Bash script entrypoint
-```
-
----
-
 ## Dependencies
 
 * **Apache Commons CLI** – for command-line argument parsing
@@ -175,9 +198,3 @@ All dependencies are managed via Maven.
 3. Make your changes
 4. Add tests for new functionality
 5. Submit a pull request
-
----
-
-## Author
-
-Hamza Maach
