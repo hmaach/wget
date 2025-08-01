@@ -1,7 +1,5 @@
 package wget.mirror;
 
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,28 +16,34 @@ import org.jsoup.select.Elements;
 public class LinkConverter {
     private final Map<String, String> urlToLocalPathMap;
 
-    // Pattern to match CSS url() references
     private static final Pattern CSS_URL_PATTERN = Pattern.compile(
             "url\\s*\\(\\s*['\"]?([^'\"\\)\\s]+)['\"]?\\s*\\)",
             Pattern.CASE_INSENSITIVE);
+
+    private static final Pattern HTML_FILE_PATTERN = Pattern.compile(
+            "\\.(html?|htm|xhtml|shtml)$", Pattern.CASE_INSENSITIVE);
+
+    private static final String[][] ELEMENT_CONFIGS = {
+            { "a[href]", "href" },
+            { "img[src]", "src" },
+            { "link[href]", "href" },
+            { "script[src]", "src" }
+    };
 
     public LinkConverter(Map<String, String> urlToLocalPathMap) {
         this.urlToLocalPathMap = urlToLocalPathMap;
     }
 
     public void convertLinksInFile(String filePath) throws IOException {
-        File file = new File(filePath);
-        if (!file.exists() || !isHtmlFile(filePath)) {
+        if (!isHtmlFile(filePath) || !Files.exists(Paths.get(filePath))) {
             return;
         }
 
-        String content = Files.readString(file.toPath());
+        String content = Files.readString(Paths.get(filePath));
         String convertedContent = convertLinksInHtml(content, filePath);
 
         if (!content.equals(convertedContent)) {
-            try (FileWriter writer = new FileWriter(file)) {
-                writer.write(convertedContent);
-            }
+            Files.writeString(Paths.get(filePath), convertedContent);
         }
     }
 
@@ -48,71 +52,9 @@ public class LinkConverter {
             Document doc = Jsoup.parse(htmlContent);
             boolean modified = false;
 
-            // Convert <a> tag href attributes
-            Elements links = doc.select("a[href]");
-            for (Element link : links) {
-                String href = link.attr("href");
-                String convertedHref = convertUrl(href, currentFilePath);
-                if (!href.equals(convertedHref)) {
-                    link.attr("href", convertedHref);
-                    modified = true;
-                }
-            }
+            modified |= processHtmlElements(doc, currentFilePath);
 
-            // Convert <img> tag src attributes
-            Elements images = doc.select("img[src]");
-            for (Element img : images) {
-                String src = img.attr("src");
-                String convertedSrc = convertUrl(src, currentFilePath);
-                if (!src.equals(convertedSrc)) {
-                    img.attr("src", convertedSrc);
-                    modified = true;
-                }
-            }
-
-            // Convert <link> tag href attributes (CSS, etc.)
-            Elements cssLinks = doc.select("link[href]");
-            for (Element cssLink : cssLinks) {
-                String href = cssLink.attr("href");
-                String convertedHref = convertUrl(href, currentFilePath);
-                if (!href.equals(convertedHref)) {
-                    cssLink.attr("href", convertedHref);
-                    modified = true;
-                }
-            }
-
-            // Convert <script> tag src attributes
-            Elements scripts = doc.select("script[src]");
-            for (Element script : scripts) {
-                String src = script.attr("src");
-                String convertedSrc = convertUrl(src, currentFilePath);
-                if (!src.equals(convertedSrc)) {
-                    script.attr("src", convertedSrc);
-                    modified = true;
-                }
-            }
-
-            // Convert URLs in <style> tags
-            Elements styleTags = doc.select("style");
-            for (Element styleTag : styleTags) {
-                String cssContent = styleTag.html();
-                String convertedCss = convertUrlsInCss(cssContent, currentFilePath);
-                if (!cssContent.equals(convertedCss)) {
-                    styleTag.html(convertedCss);
-                    modified = true;
-                }
-            }
-
-            // Convert URLs in inline style attributes
-            Elements elementsWithStyle = doc.select("[style]");
-            for (Element element : elementsWithStyle) {
-                String styleContent = element.attr("style");
-                String convertedStyle = convertUrlsInCss(styleContent, currentFilePath);
-                if (!styleContent.equals(convertedStyle)) {
-                    element.attr("style", convertedStyle);
-                    modified = true;
-                }
-            }
+            modified |= processCssUrls(doc, currentFilePath);
 
             return modified ? doc.outerHtml() : htmlContent;
 
@@ -122,7 +64,57 @@ public class LinkConverter {
         }
     }
 
-    private String convertUrlsInCss(String cssContent, String currentFilePath) {
+    private boolean processHtmlElements(Document doc, String currentFilePath) {
+        boolean modified = false;
+
+        for (String[] config : ELEMENT_CONFIGS) {
+            String selector = config[0];
+            String attribute = config[1];
+
+            Elements elements = doc.select(selector);
+            for (Element element : elements) {
+                String originalUrl = element.attr(attribute);
+                String convertedUrl = convertUrl(originalUrl, currentFilePath);
+
+                if (!originalUrl.equals(convertedUrl)) {
+                    element.attr(attribute, convertedUrl);
+                    modified = true;
+                }
+            }
+        }
+
+        return modified;
+    }
+
+    private boolean processCssUrls(Document doc, String currentFilePath) {
+        boolean modified = false;
+
+        // Process <style> tags
+        Elements styleTags = doc.select("style");
+        for (Element styleTag : styleTags) {
+            String originalCss = styleTag.html();
+            String convertedCss = convertCssUrls(originalCss, currentFilePath);
+            if (!originalCss.equals(convertedCss)) {
+                styleTag.html(convertedCss);
+                modified = true;
+            }
+        }
+
+        // Process inline style attributes
+        Elements elementsWithStyle = doc.select("[style]");
+        for (Element element : elementsWithStyle) {
+            String originalStyle = element.attr("style");
+            String convertedStyle = convertCssUrls(originalStyle, currentFilePath);
+            if (!originalStyle.equals(convertedStyle)) {
+                element.attr("style", convertedStyle);
+                modified = true;
+            }
+        }
+
+        return modified;
+    }
+
+    private String convertCssUrls(String cssContent, String currentFilePath) {
         if (cssContent == null || cssContent.trim().isEmpty()) {
             return cssContent;
         }
@@ -131,11 +123,11 @@ public class LinkConverter {
         Matcher matcher = CSS_URL_PATTERN.matcher(cssContent);
 
         while (matcher.find()) {
-            String originalUrl = matcher.group(1);
-            String cleanUrl = originalUrl.trim();
+            String originalUrl = matcher.group(1).trim();
+            String convertedUrl = convertUrl(originalUrl, currentFilePath);
 
-            String convertedUrl = convertUrl(cleanUrl, currentFilePath);
-            String replacement = "url(" + convertedUrl + ")";
+            // Build replacement with proper quoting
+            String replacement = "url('" + convertedUrl + "')";
             matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
         }
         matcher.appendTail(result);
@@ -144,12 +136,8 @@ public class LinkConverter {
     }
 
     private String convertUrl(String url, String currentFilePath) {
-        if (url == null || url.trim().isEmpty()) {
-            return url;
-        }
-
-        // Skip data URLs, javascript URLs, and anchors
-        if (url.startsWith("data:") || url.startsWith("javascript:") || url.startsWith("#")) {
+        if (url == null || url.trim().isEmpty() ||
+                url.startsWith("data:") || url.startsWith("javascript:") || url.startsWith("#")) {
             return url;
         }
 
@@ -166,10 +154,11 @@ public class LinkConverter {
             return urlToLocalPathMap.get(url);
         }
 
-        // Look for files that end with this path
-        for (Map.Entry<String, String> entry : urlToLocalPathMap.entrySet()) {
-            if (entry.getKey().endsWith(url) && !url.isEmpty()) {
-                return entry.getValue();
+        if (!url.isEmpty()) {
+            for (Map.Entry<String, String> entry : urlToLocalPathMap.entrySet()) {
+                if (entry.getKey().endsWith(url)) {
+                    return entry.getValue();
+                }
             }
         }
 
@@ -186,22 +175,25 @@ public class LinkConverter {
             }
 
             Path relativePath = from.relativize(to);
-            return "'" + relativePath.toString() + "'";
+            return relativePath.toString();
         } catch (Exception e) {
             return toPath;
         }
     }
 
     private boolean isHtmlFile(String filePath) {
-        String lowerPath = filePath.toLowerCase();
-        return lowerPath.endsWith(".html") || lowerPath.endsWith(".htm") ||
-                lowerPath.endsWith(".xhtml") || lowerPath.endsWith(".shtml");
+        return HTML_FILE_PATTERN.matcher(filePath.toLowerCase()).find();
     }
 
     public void convertAllFiles() throws IOException {
         for (String localPath : urlToLocalPathMap.values()) {
             if (isHtmlFile(localPath)) {
-                convertLinksInFile(localPath);
+                try {
+                    convertLinksInFile(localPath);
+                } catch (IOException e) {
+                    System.err.printf("Warning: Could not convert links in file %s: %s%n",
+                            localPath, e.getMessage());
+                }
             }
         }
     }

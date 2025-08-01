@@ -2,6 +2,8 @@ package wget.mirror;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -20,15 +22,16 @@ public class HtmlParser {
     private final List<String> rejectedExtensions;
     private final List<String> excludedPaths;
 
-    // Pattern to match CSS url() references
     private static final Pattern CSS_URL_PATTERN = Pattern.compile(
             "url\\s*\\(\\s*['\"]?([^'\"\\)\\s]+)['\"]?\\s*\\)",
             Pattern.CASE_INSENSITIVE);
 
-    public HtmlParser() {
-        this.rejectedExtensions = new ArrayList<>();
-        this.excludedPaths = new ArrayList<>();
-    }
+    private static final String[][] ELEMENT_SELECTORS = {
+            { "a[href]", "href" },
+            { "img[src]", "src" },
+            { "link[href]", "href" },
+            { "script[src]", "src" }
+    };
 
     public HtmlParser(List<String> rejectedExtensions, List<String> excludedPaths) {
         this.rejectedExtensions = rejectedExtensions != null ? rejectedExtensions : new ArrayList<>();
@@ -40,72 +43,13 @@ public class HtmlParser {
 
         try {
             Document doc = Jsoup.parse(htmlContent);
-            URL base = new URL(baseUrl);
+            URL baseUrlObj = new URL(baseUrl);
 
-            // Extract links from <a> tags with href attribute
-            Elements links = doc.select("a[href]");
-            for (Element link : links) {
-                String href = link.attr("href");
-                String absoluteUrl = resolveUrl(href, base);
-                if (absoluteUrl != null && shouldIncludeUrl(absoluteUrl)) {
-                    discoveredUrls.add(absoluteUrl);
-                }
-            }
+            processHtmlElements(doc, baseUrlObj, discoveredUrls);
+            processCssUrls(doc, baseUrlObj, discoveredUrls);
 
-            // Extract resources from <img> tags with src attribute
-            Elements images = doc.select("img[src]");
-            for (Element img : images) {
-                String src = img.attr("src");
-                String absoluteUrl = resolveUrl(src, base);
-                if (absoluteUrl != null && shouldIncludeUrl(absoluteUrl)) {
-                    discoveredUrls.add(absoluteUrl);
-                }
-            }
-
-            // Extract resources from <link> tags with href attribute (CSS, favicons, etc.)
-            Elements cssLinks = doc.select("link[href]");
-            for (Element cssLink : cssLinks) {
-                String href = cssLink.attr("href");
-                String absoluteUrl = resolveUrl(href, base);
-                if (absoluteUrl != null && shouldIncludeUrl(absoluteUrl)) {
-                    discoveredUrls.add(absoluteUrl);
-                }
-            }
-
-            // Extract resources from <script> tags with src attribute
-            Elements scripts = doc.select("script[src]");
-            for (Element script : scripts) {
-                String src = script.attr("src");
-                String absoluteUrl = resolveUrl(src, base);
-                if (absoluteUrl != null && shouldIncludeUrl(absoluteUrl)) {
-                    discoveredUrls.add(absoluteUrl);
-                }
-            }
-
-            // Extract URLs from CSS content in <style> tags
-            Elements styleTags = doc.select("style");
-            for (Element styleTag : styleTags) {
-                String cssContent = styleTag.html();
-                Set<String> cssUrls = extractUrlsFromCss(cssContent, base);
-                for (String cssUrl : cssUrls) {
-                    if (shouldIncludeUrl(cssUrl)) {
-                        discoveredUrls.add(cssUrl);
-                    }
-                }
-            }
-
-            // Extract URLs from inline style attributes
-            Elements elementsWithStyle = doc.select("[style]");
-            for (Element element : elementsWithStyle) {
-                String styleContent = element.attr("style");
-                Set<String> cssUrls = extractUrlsFromCss(styleContent, base);
-                for (String cssUrl : cssUrls) {
-                    if (shouldIncludeUrl(cssUrl)) {
-                        discoveredUrls.add(cssUrl);
-                    }
-                }
-            }
-
+        } catch (MalformedURLException e) {
+            throw new IOException("Invalid base URL: " + baseUrl, e);
         } catch (Exception e) {
             throw new IOException("Error parsing HTML document: " + e.getMessage(), e);
         }
@@ -113,32 +57,55 @@ public class HtmlParser {
         return discoveredUrls;
     }
 
-    private Set<String> extractUrlsFromCss(String cssContent, URL base) {
-        Set<String> urls = new HashSet<>();
+    private void processHtmlElements(Document doc, URL baseUrl, Set<String> discoveredUrls) {
+        for (String[] selectorConfig : ELEMENT_SELECTORS) {
+            String selector = selectorConfig[0];
+            String attribute = selectorConfig[1];
 
+            Elements elements = doc.select(selector);
+            for (Element element : elements) {
+                String url = element.attr(attribute);
+                addResolvedUrl(url, baseUrl, discoveredUrls);
+            }
+        }
+    }
+
+    private void processCssUrls(Document doc, URL baseUrl, Set<String> discoveredUrls) {
+        // Process <style> tags
+        Elements styleTags = doc.select("style");
+        for (Element styleTag : styleTags) {
+            extractUrlsFromCss(styleTag.html(), baseUrl, discoveredUrls);
+        }
+
+        // Process inline style attributes
+        Elements elementsWithStyle = doc.select("[style]");
+        for (Element element : elementsWithStyle) {
+            extractUrlsFromCss(element.attr("style"), baseUrl, discoveredUrls);
+        }
+    }
+
+    private void extractUrlsFromCss(String cssContent, URL baseUrl, Set<String> discoveredUrls) {
         if (cssContent == null || cssContent.trim().isEmpty()) {
-            return urls;
+            return;
         }
 
         Matcher matcher = CSS_URL_PATTERN.matcher(cssContent);
         while (matcher.find()) {
-            String url = matcher.group(1);
-
-            // Clean up the URL (remove quotes if any)
-            url = url.replaceAll("^['\"]|['\"]$", "").trim();
-
+            String url = matcher.group(1).replaceAll("^['\"]|['\"]$", "").trim();
             if (!url.isEmpty()) {
-                String absoluteUrl = resolveUrl(url, base);
-                if (absoluteUrl != null) {
-                    urls.add(absoluteUrl);
-                }
+                addResolvedUrl(url, baseUrl, discoveredUrls);
             }
         }
-
-        return urls;
     }
 
-    private String resolveUrl(String url, URL base) {
+    private void addResolvedUrl(String url, URL baseUrl, Set<String> discoveredUrls) {
+        String absoluteUrl = resolveUrl(url, baseUrl);
+        if (absoluteUrl != null && shouldIncludeUrl(absoluteUrl)) {
+            discoveredUrls.add(absoluteUrl);
+        }
+    }
+
+    private String resolveUrl(String url, URL baseUrl) {
         if (url == null || url.trim().isEmpty()) {
             return null;
         }
@@ -151,46 +118,18 @@ public class HtmlParser {
 
             // Handle protocol-relative URLs
             if (url.startsWith("//")) {
-                return base.getProtocol() + ":" + url;
+                return baseUrl.getProtocol() + ":" + url;
             }
 
-            // Handle absolute paths
-            if (url.startsWith("/")) {
-                return base.getProtocol() + "://" + base.getHost() +
-                        (base.getPort() != -1 ? ":" + base.getPort() : "") + url;
-            }
+            URI baseUri = baseUrl.toURI();
+            URI resolvedUri = baseUri.resolve(url);
+            return resolvedUri.toString();
 
-            // Handle relative URLs
-            String basePath = base.getPath();
-            if (!basePath.endsWith("/")) {
-                basePath = basePath.substring(0, basePath.lastIndexOf('/') + 1);
-            }
-
-            String fullPath = basePath + url;
-            return base.getProtocol() + "://" + base.getHost() +
-                    (base.getPort() != -1 ? ":" + base.getPort() : "") + normalizePath(fullPath);
-
-        } catch (Exception e) {
-            System.err.println("Warning: Could not resolve URL: " + url);
+        } catch (URISyntaxException | IllegalArgumentException e) {
+            // Log warning but don't fail the entire parsing process
+            System.err.println("Warning: Could not resolve URL: " + url + " - " + e.getMessage());
             return null;
         }
-    }
-
-    private String normalizePath(String path) {
-        String[] parts = path.split("/");
-        List<String> normalizedParts = new ArrayList<>();
-
-        for (String part : parts) {
-            if (part.equals("..")) {
-                if (!normalizedParts.isEmpty()) {
-                    normalizedParts.remove(normalizedParts.size() - 1);
-                }
-            } else if (!part.equals(".") && !part.isEmpty()) {
-                normalizedParts.add(part);
-            }
-        }
-
-        return "/" + String.join("/", normalizedParts);
     }
 
     private boolean shouldIncludeUrl(String url) {
@@ -198,21 +137,23 @@ public class HtmlParser {
             return false;
         }
 
-        // Check if URL should be excluded based on path
-        for (String excludedPath : excludedPaths) {
-            try {
-                URL urlObj = new URL(url);
-                if (urlObj.getPath().startsWith(excludedPath)) {
-                    return false;
-                }
-            } catch (MalformedURLException e) {
+        // Check rejected extensions
+        for (String extension : rejectedExtensions) {
+            if (url.toLowerCase().endsWith("." + extension.toLowerCase())) {
                 return false;
             }
         }
 
-        // Check if URL should be rejected based on file extension
-        for (String extension : rejectedExtensions) {
-            if (url.toLowerCase().endsWith("." + extension.toLowerCase())) {
+        // Check excluded paths
+        if (!excludedPaths.isEmpty()) {
+            try {
+                String path = new URL(url).getPath();
+                for (String excludedPath : excludedPaths) {
+                    if (path.startsWith(excludedPath)) {
+                        return false;
+                    }
+                }
+            } catch (MalformedURLException e) {
                 return false;
             }
         }

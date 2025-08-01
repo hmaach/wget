@@ -3,7 +3,8 @@ package wget.mirror;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -14,36 +15,39 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import wget.download.FileManager;
-import wget.utils.FileUtils;
 import wget.utils.NetworkUtils;
 
 public class WebsiteMirror {
-    private final String baseUrl;
-    private final String mirrorDirectory;
+    private final URI baseUri;
+    private final String baseDomain;
+    private final Path mirrorDirectory;
     private final HtmlParser htmlParser;
     private final boolean convertLinks;
 
     private final Queue<String> urlQueue = new LinkedList<>();
     private final Map<String, String> urlToLocalPathMap = new HashMap<>();
 
-    public WebsiteMirror(String url,
-            List<String> rejectedExtensions, List<String> excludedPaths,
-            boolean convertLinks) throws MalformedURLException {
-        this.baseUrl = normalizeUrl(url);
-        this.mirrorDirectory = createMirrorDirectory(this.baseUrl);
+    private static final Pattern HTML_PATTERN = Pattern.compile(
+            "\\.(html?|xhtml|shtml)$", Pattern.CASE_INSENSITIVE);
+
+    public WebsiteMirror(String url, List<String> rejectedExtensions,
+            List<String> excludedPaths, boolean convertLinks) throws MalformedURLException {
+        this.baseUri = normalizeToUri(url);
+        this.baseDomain = this.baseUri.getHost().toLowerCase();
+        this.mirrorDirectory = createMirrorDirectory();
         this.htmlParser = new HtmlParser(rejectedExtensions, excludedPaths);
         this.convertLinks = convertLinks;
     }
 
     public void mirror() throws IOException {
-        System.out.printf("Starting mirror of %s%n", baseUrl);
+        System.out.printf("Starting mirror of %s%n", baseUri);
         System.out.printf("Saving to directory: %s%n", mirrorDirectory);
 
-        FileUtils.ensureExists(mirrorDirectory);
-
-        urlQueue.add(baseUrl);
+        Files.createDirectories(mirrorDirectory);
+        urlQueue.add(baseUri.toString());
 
         while (!urlQueue.isEmpty()) {
             String currentUrl = urlQueue.poll();
@@ -53,7 +57,7 @@ public class WebsiteMirror {
             }
 
             try {
-                downloadAndProcess(currentUrl);
+                processUrl(currentUrl);
                 htmlParser.markAsVisited(currentUrl);
             } catch (IOException e) {
                 System.err.printf("Error processing %s: %s%n", currentUrl, e.getMessage());
@@ -62,15 +66,13 @@ public class WebsiteMirror {
 
         if (convertLinks) {
             System.out.println("Converting links for offline viewing...");
-            LinkConverter linkConverter = new LinkConverter(urlToLocalPathMap);
-            linkConverter.convertAllFiles();
+            new LinkConverter(urlToLocalPathMap).convertAllFiles();
         }
 
         System.out.printf("Mirror complete. %d files downloaded.%n", urlToLocalPathMap.size());
     }
 
-    // URL → Download → Save to disk → Parse (if HTML) → Queue new URLs
-    private void downloadAndProcess(String url) throws IOException {
+    private void processUrl(String url) throws IOException {
         System.out.printf("Processing: %s%n", url);
 
         String localPath = downloadFile(url);
@@ -80,51 +82,43 @@ public class WebsiteMirror {
 
         urlToLocalPathMap.put(url, localPath);
 
-        if (isHtmlFile(url) || isHtmlFile(localPath)) {
-            try {
-                String htmlContent = Files.readString(Paths.get(localPath));
-                Set<String> discoveredUrls = htmlParser.parseDocument(htmlContent, url);
+        if (isHtmlFile(url, localPath)) {
+            String content = Files.readString(Paths.get(localPath));
+            Set<String> discoveredUrls = htmlParser.parseDocument(content, url);
 
-                for (String discoveredUrl : discoveredUrls) {
-                    if (isSameDomain(discoveredUrl, baseUrl) && !htmlParser.wasVisited(discoveredUrl)) {
-                        urlQueue.add(discoveredUrl);
-                    }
+            for (String discoveredUrl : discoveredUrls) {
+                if (isSameDomain(discoveredUrl) && !htmlParser.wasVisited(discoveredUrl)) {
+                    urlQueue.add(discoveredUrl);
                 }
-            } catch (IOException e) {
-                System.err.printf("Warning: Could not parse HTML content from %s: %s%n",
-                        localPath, e.getMessage());
             }
         }
     }
 
     private String downloadFile(String url) throws IOException {
+        String localPath = generateLocalPath(url);
+        Path localFilePath = Paths.get(localPath);
+
+        Files.createDirectories(localFilePath.getParent());
+
+        if (Files.exists(localFilePath)) {
+            System.out.printf("File already exists: %s%n", localPath);
+            return localPath;
+        }
+
         try {
-            String localPath = generateLocalPath(url);
-
-            Path localFilePath = Paths.get(localPath);
-            Files.createDirectories(localFilePath.getParent());
-
-            // Skip if file already exists
-            if (Files.exists(localFilePath)) {
-                System.out.printf("File already exists: %s%n", localPath);
-                return localPath;
-            }
-
-            // Download the file
             HttpURLConnection conn = NetworkUtils.createConnection(url, "GET");
-
             int status = conn.getResponseCode();
+
             if (status != HttpURLConnection.HTTP_OK) {
                 System.err.printf("Warning: %s returned status %d%n", url, status);
                 return null;
             }
 
-            int contentLength = conn.getContentLength();
-            String fileName = Paths.get(localPath).getFileName().toString();
+            String fileName = localFilePath.getFileName().toString();
+            String directory = localFilePath.getParent().toString() + "/";
 
-            FileManager fileManager = new FileManager(fileName,
-                    localFilePath.getParent().toString() + "/");
-            fileManager.save(conn, contentLength, true, false, null);
+            FileManager fileManager = new FileManager(fileName, directory);
+            fileManager.save(conn, conn.getContentLength(), true, false, null);
 
             System.out.printf("Downloaded: %s -> %s%n", url, localPath);
             return localPath;
@@ -135,61 +129,67 @@ public class WebsiteMirror {
     }
 
     private String generateLocalPath(String url) throws MalformedURLException {
-        URL urlObj = new URL(url);
-        String path = urlObj.getPath();
+        try {
+            URI uri = new URI(url);
+            String path = uri.getPath();
 
-        if (path.isEmpty() || path.equals("/")) {
-            path = "/index.html";
+            if (path.isEmpty() || path.equals("/")) {
+                path = "/index.html";
+            }
+
+            if (path.startsWith("/")) {
+                path = path.substring(1);
+            }
+
+            Path localPath = mirrorDirectory.resolve(path);
+            return localPath.toString();
+
+        } catch (URISyntaxException e) {
+            throw new MalformedURLException("Invalid URL: " + url);
         }
-
-        if (path.startsWith("/")) {
-            path = path.substring(1);
-        }
-
-        String localPath = mirrorDirectory + "/" + path;
-
-        return localPath;
     }
 
-    private String createMirrorDirectory(String url) throws MalformedURLException {
-        URL urlObj = new URL(url);
-        String host = urlObj.getHost();
-
+    private Path createMirrorDirectory() {
+        String host = baseDomain;
         if (host.startsWith("www.")) {
             host = host.substring(4);
         }
-
-        return "./downloads/" + host;
+        return Paths.get("./downloads", host);
     }
 
-    private String normalizeUrl(String url) {
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            url = "http://" + url;
-        }
-
-        if (url.endsWith("/")) {
-            url = url.substring(0, url.length() - 1);
-        }
-
-        return url;
-    }
-
-    private boolean isSameDomain(String url1, String url2) {
+    private URI normalizeToUri(String url) throws MalformedURLException {
         try {
-            URL u1 = new URL(url1);
-            URL u2 = new URL(url2);
-            return u1.getHost().equalsIgnoreCase(u2.getHost());
-        } catch (MalformedURLException e) {
+            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                url = "http://" + url;
+            }
+
+            URI uri = new URI(url);
+
+            String path = uri.getPath();
+            if (path.endsWith("/") && path.length() > 1) {
+                path = path.substring(0, path.length() - 1);
+            }
+
+            return new URI(uri.getScheme(), uri.getAuthority(), path, uri.getQuery(), uri.getFragment());
+
+        } catch (URISyntaxException e) {
+            throw new MalformedURLException("Invalid URL: " + url);
+        }
+    }
+
+    private boolean isSameDomain(String url) {
+        try {
+            URI uri = new URI(url);
+            String host = uri.getHost();
+            return host != null && host.toLowerCase().equals(baseDomain);
+        } catch (URISyntaxException e) {
             return false;
         }
     }
 
-    private boolean isHtmlFile(String urlOrPath) {
-        String lower = urlOrPath.toLowerCase();
-        return lower.endsWith(".html") || lower.endsWith(".htm") ||
-                lower.endsWith(".xhtml") || lower.endsWith(".shtml") ||
-                lower.contains("text/html") ||
-                (!lower.contains(".") && !lower.endsWith("/")); // Assume URLs without extension are HTML
+    private boolean isHtmlFile(String url, String localPath) {
+        String lower = localPath.toLowerCase();
+        return HTML_PATTERN.matcher(lower).find();
     }
 
     public static List<String> parseCommaSeparatedList(String input) {
