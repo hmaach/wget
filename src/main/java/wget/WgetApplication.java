@@ -7,6 +7,7 @@ import org.apache.commons.cli.ParseException;
 
 import wget.cli.ArgumentParser;
 import wget.cli.OutputFormatter;
+import wget.download.AsyncDownloader;
 import wget.download.Downloader;
 import wget.download.FileManager;
 import wget.download.PathManager;
@@ -29,9 +30,14 @@ public class WgetApplication {
             return;
         }
 
+        if (!parser.hasOption("i") && parser.getUrls().length == 0) {
+            parser.printHelp();
+            return;
+        }
+
         try {
             this.formatter = new OutputFormatter(this.parser);
-        } catch (Exception e) {
+        } catch (IOException e) {
             System.err.printf("ERROR: %s%n", e.getMessage());
             return;
         }
@@ -39,21 +45,34 @@ public class WgetApplication {
         handlePath();
         handleRateLimit();
 
-        // Handle mirroring
+        if (parser.hasOption("i")) {
+            AsyncDownloader asyncDownloader = new AsyncDownloader();
+
+            List<String> urlsFromFile;
+            try {
+                urlsFromFile = FileUtils.readFile(parser.getOptionValue("i"));
+            } catch (IOException e) {
+                System.err.printf("ERROR: reading file '%s': %s%n", parser.getOptionValue("i"), e.getMessage());
+                return;
+            }
+
+            for (String url : urlsFromFile) {
+                String fileName = FileManager.determineFileName(parser, url);
+                asyncDownloader.downloadAsync(url, fileName, path, "GET", formatter, rateLimiter);
+            }
+
+            asyncDownloader.shutdownAndAwaitTermination();
+
+            return;
+        }
+
         if (parser.hasOption("mirror")) {
             handleMirroring();
             return;
         }
 
-        // Handle background download
         if (parser.hasOption("B")) {
             handleBackgroundDownload();
-            return;
-        }
-
-        // Handle regular downloads
-        if (!parser.hasOption("i") && parser.getUrls().length == 0) {
-            parser.printHelp();
             return;
         }
 

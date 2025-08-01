@@ -8,6 +8,7 @@ import wget.utils.Logger;
 import wget.utils.TimeUtils;
 
 public class OutputFormatter {
+
     public final ArgumentParser parser;
     public final Logger logger;
 
@@ -16,18 +17,29 @@ public class OutputFormatter {
         this.logger = new Logger();
     }
 
-    public void printStart(String url) throws IOException {
-        final String message = String.format("Start at %s%n", TimeUtils.timestamp());
-        if (this.parser.hasOption("-B")) {
+    public void printStart(String fileName) throws IOException {
+        final String message;
+        if (this.parser.hasOption("i")) {
+            message = String.format("Start downloading [%s] at %s%n", fileName, TimeUtils.timestamp());
+        } else {
+            message = String.format("Start at %s%n", TimeUtils.timestamp());
+        }
+
+        if (this.parser.hasOption("B")) {
             logger.log(message);
             return;
         }
         System.out.print(message);
     }
 
-    public void printEnd(String url) throws IOException {
-        final String message = String.format("Downloaded [%s]%nFinished at %s%n", url, TimeUtils.timestamp());
-        if (this.parser.hasOption("-B")) {
+    public void printEnd(String fileName,String url) throws IOException {
+        final String message;
+        if (this.parser.hasOption("i")) {
+            message = String.format("Finished downloading [%s]%n", fileName);
+        } else {
+            message = String.format("Finished downloading [%s]%n", url);
+        }
+        if (this.parser.hasOption("B")) {
             logger.log(message);
             logger.log("------------------------------------------------\n");
             return;
@@ -35,14 +47,15 @@ public class OutputFormatter {
         System.out.print(message);
     }
 
-    public void printConnectionInfo(HttpURLConnection conn) throws IOException {
+    public void printConnectionInfo(HttpURLConnection conn, String fileName) throws IOException {
         int status = conn.getResponseCode();
         final String message = String.format(
-                "Sending request, awaiting response... Status %d %s%n",
+                "%n--%s: Sending request, awaiting response... Status %d %s%n%n",
+                fileName,
                 status,
                 conn.getResponseMessage());
 
-        if (this.parser.hasOption("-B")) {
+        if (this.parser.hasOption("B")) {
             logger.log(message);
             return;
         }
@@ -61,7 +74,7 @@ public class OutputFormatter {
             message = String.format("Content size: %d [~%s]%n", contentLength, FormatUtils.convertToMB(contentLength));
         }
 
-        if (this.parser.hasOption("-B")) {
+        if (this.parser.hasOption("B")) {
             logger.log(message);
             return;
         }
