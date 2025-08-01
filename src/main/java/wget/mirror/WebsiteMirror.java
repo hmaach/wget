@@ -16,8 +16,8 @@ import java.util.Queue;
 import java.util.Set;
 
 import wget.download.FileManager;
-import wget.download.PathManager;
-import wget.network.HttpConnector;
+import wget.utils.FileUtils;
+import wget.utils.NetworkUtils;
 
 public class WebsiteMirror {
     private final String baseUrl;
@@ -41,7 +41,7 @@ public class WebsiteMirror {
         System.out.printf("Starting mirror of %s%n", baseUrl);
         System.out.printf("Saving to directory: %s%n", mirrorDirectory);
 
-        PathManager.ensureExists(mirrorDirectory);
+        FileUtils.ensureExists(mirrorDirectory);
 
         urlQueue.add(baseUrl);
 
@@ -111,8 +111,7 @@ public class WebsiteMirror {
             }
 
             // Download the file
-            HttpConnector connector = new HttpConnector(url, "GET");
-            HttpURLConnection conn = connector.connect();
+            HttpURLConnection conn = NetworkUtils.createConnection(url, "GET");
 
             int status = conn.getResponseCode();
             if (status != HttpURLConnection.HTTP_OK) {
@@ -125,7 +124,7 @@ public class WebsiteMirror {
 
             FileManager fileManager = new FileManager(fileName,
                     localFilePath.getParent().toString() + "/");
-            fileManager.save(conn, contentLength, true);
+            fileManager.save(conn, contentLength, true, false, null);
 
             System.out.printf("Downloaded: %s -> %s%n", url, localPath);
             return localPath;
@@ -148,12 +147,6 @@ public class WebsiteMirror {
         }
 
         String localPath = mirrorDirectory + "/" + path;
-
-        // If the path doesn't have an extension and doesn't end with /, assume it's
-        // HTML
-        if (!path.contains(".") && !path.endsWith("/")) {
-            localPath += ".html";
-        }
 
         return localPath;
     }

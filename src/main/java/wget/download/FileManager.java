@@ -11,9 +11,7 @@ import wget.utils.FileUtils;
 import wget.utils.TerminalUtils;
 
 public class FileManager {
-
     private static final int BUFFER_SIZE = 8192;
-
     private final String fileName;
     private final String path;
 
@@ -23,10 +21,11 @@ public class FileManager {
         }
 
         this.fileName = fileName;
-        this.path = PathManager.normalizePath(path);
+        this.path = FileUtils.normalizePath(path);
     }
 
-    public void save(HttpURLConnection conn, int contentLength, boolean in_background, boolean in_async, RateLimiter rateLimiter) throws IOException {
+    public void save(HttpURLConnection conn, int contentLength, boolean inBackground, boolean inAsync,
+            RateLimiter rateLimiter) throws IOException {
         try (InputStream in = conn.getInputStream(); FileOutputStream out = new FileOutputStream(path + fileName)) {
 
             byte[] buffer = new byte[BUFFER_SIZE];
@@ -49,19 +48,15 @@ public class FileManager {
                     }
                 }
 
-                if (!in_background && !in_async) {
+                if (!inBackground && !inAsync) {
                     OutputFormatter.printProgressBar(downloaded, contentLength, barWidth, startNano);
                 }
             }
 
-            if (!in_background && !in_async) {
+            if (!inBackground && !inAsync) {
                 System.out.print("\n\n");
             }
         }
-    }
-
-    public void save(HttpURLConnection conn, int contentLength, boolean in_background) throws IOException {
-        save(conn, contentLength, in_background, false, null);
     }
 
     public static String determineFileName(ArgumentParser parser, String url) {
@@ -69,9 +64,5 @@ public class FileManager {
             return parser.getOptionValue("O");
         }
         return FileUtils.extractFileName(url);
-    }
-
-    public String getFullPath() {
-        return path + fileName;
     }
 }

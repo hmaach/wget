@@ -1,95 +1,70 @@
 package wget;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
-
-import org.apache.commons.cli.ParseException;
 
 import wget.cli.ArgumentParser;
 import wget.cli.OutputFormatter;
 import wget.download.AsyncDownloader;
 import wget.download.Downloader;
 import wget.download.FileManager;
-import wget.download.PathManager;
 import wget.download.RateLimiter;
 import wget.mirror.WebsiteMirror;
 import wget.utils.FileUtils;
 
 public class WgetApplication {
-
     private String path = "./downloads/";
     private OutputFormatter formatter;
     private RateLimiter rateLimiter;
     private ArgumentParser parser;
 
     public void run(String[] args) {
-        try {
-            this.parser = new ArgumentParser(args);
-        } catch (ParseException e) {
-            System.err.printf("Error parsing arguments: %s%n", e.getMessage());
+        if (!initialize(args))
             return;
-        }
-
-        if (!parser.hasOption("i") && parser.getUrls().length == 0) {
-            parser.printHelp();
-            return;
-        }
-
-        try {
-            this.formatter = new OutputFormatter(this.parser);
-        } catch (IOException e) {
-            System.err.printf("ERROR: %s%n", e.getMessage());
-            return;
-        }
-
-        handlePath();
-        handleRateLimit();
 
         if (parser.hasOption("i")) {
-            AsyncDownloader asyncDownloader = new AsyncDownloader();
-
-            List<String> urlsFromFile;
-            try {
-                urlsFromFile = FileUtils.readFile(parser.getOptionValue("i"));
-            } catch (IOException e) {
-                System.err.printf("ERROR: reading file '%s': %s%n", parser.getOptionValue("i"), e.getMessage());
-                return;
-            }
-
-            for (String url : urlsFromFile) {
-                String fileName = FileManager.determineFileName(parser, url);
-                asyncDownloader.downloadAsync(url, fileName, path, "GET", formatter, rateLimiter);
-            }
-
-            asyncDownloader.shutdownAndAwaitTermination();
-
-            return;
-        }
-
-        if (parser.hasOption("mirror")) {
+            handleAsyncDownload();
+        } else if (parser.hasOption("mirror")) {
             handleMirroring();
-            return;
-        }
-
-        if (parser.hasOption("B")) {
+        } else if (parser.hasOption("B")) {
             handleBackgroundDownload();
+        } else {
+            handleRegularDownloads();
+        }
+    }
+
+    private boolean initialize(String[] args) {
+        try {
+            this.parser = new ArgumentParser(args);
+            this.formatter = new OutputFormatter(this.parser);
+            handlePath();
+            handleRateLimit();
+            return true;
+        } catch (Exception e) {
+            System.err.printf("Error: %s%n", e.getMessage());
+            return false;
+        }
+    }
+
+    private void handleAsyncDownload() {
+        AsyncDownloader asyncDownloader = new AsyncDownloader();
+
+        List<String> urlsFromFile;
+        try {
+            urlsFromFile = FileUtils.readFile(parser.getOptionValue("i"));
+        } catch (IOException e) {
+            System.err.printf("ERROR: reading file '%s': %s%n", parser.getOptionValue("i"), e.getMessage());
             return;
         }
 
-        String[] urls = getUrls();
-        if (urls == null || urls.length == 0) {
-            return;
-        }
-
-        for (String url : urls) {
+        for (String url : urlsFromFile) {
             String fileName = FileManager.determineFileName(parser, url);
-            Downloader downloader = new Downloader(url, fileName, path, "GET", formatter, rateLimiter);
-            try {
-                downloader.download();
-            } catch (IOException e) {
-                System.err.printf("ERROR: downloading '%s': %s%n", url, e.getMessage());
-            }
+            asyncDownloader.downloadAsync(url, fileName, path, "GET", formatter, rateLimiter);
         }
+
+        asyncDownloader.shutdownAndAwaitTermination();
     }
 
     private void handleMirroring() {
@@ -138,32 +113,69 @@ public class WgetApplication {
             System.err.println("The -B flag supports only one URL.");
             return;
         }
-        String url = urls[0];
-        String fileName = FileManager.determineFileName(parser, url);
 
+        String url = urls[0];
         System.out.println("Output will be written to \"wget-log\".");
 
-        new Thread(() -> {
-            Downloader downloader = new Downloader(url, fileName, path, "GET", formatter, rateLimiter);
+        try {
+            List<String> command = new ArrayList<>();
+            command.add("./wget");
+            command.add("--background");
+
+            if (parser.hasOption("O")) {
+                command.add("-O=" + parser.getOptionValue("O"));
+            }
+            if (parser.hasOption("P")) {
+                command.add("-P=" + parser.getOptionValue("P"));
+            }
+            if (parser.hasOption("rate-limit")) {
+                command.add("--rate-limit=" + parser.getOptionValue("rate-limit"));
+            }
+            command.add(url);
+
+            ProcessBuilder pb = new ProcessBuilder(command);
+
+            File logFile = new File("wget-log");
+            pb.redirectOutput(ProcessBuilder.Redirect.to(logFile));
+            pb.redirectError(ProcessBuilder.Redirect.to(logFile));
+
+            pb.start();
+
+            System.exit(0);
+        } catch (IOException e) {
+            System.err.printf("ERROR: starting background download: %s%n", e.getMessage());
+        }
+    }
+
+    private void handleRegularDownloads() {
+        String[] urls = getUrls();
+        if (urls == null || urls.length == 0) {
+            parser.printHelp();
+            return;
+        }
+
+        for (String url : urls) {
             try {
+                String fileName = FileManager.determineFileName(parser, url);
+                Downloader downloader = new Downloader(url, fileName, path, "GET", formatter, rateLimiter);
                 downloader.download();
             } catch (IOException e) {
                 System.err.printf("ERROR: downloading '%s': %s%n", url, e.getMessage());
             }
-        }).start();
+        }
     }
 
     private void handlePath() {
         if (parser.hasOption("P")) {
             try {
-                path = PathManager.parsePath(parser.getOptionValue("P"));
+                path = FileUtils.parsePath(parser.getOptionValue("P"));
             } catch (IOException e) {
                 System.err.printf("Error parsing directory path: %s%n", e.getMessage());
             }
         }
 
         try {
-            PathManager.ensureExists(path);
+            FileUtils.ensureExists(path);
         } catch (IOException e) {
             System.err.printf("Error creating directory '%s': %s%n", path, e.getMessage());
         }
