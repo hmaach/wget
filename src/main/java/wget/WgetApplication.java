@@ -1,6 +1,8 @@
 package wget;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import wget.cli.ArgumentParser;
@@ -91,18 +93,36 @@ public class WgetApplication {
         }
 
         String url = urls[0];
-        String fileName = FileManager.determineFileName(parser, url);
-
         System.out.println("Output will be written to \"wget-log\".");
 
-        new Thread(() -> {
-            Downloader downloader = new Downloader(url, fileName, path, "GET", formatter, rateLimiter);
-            try {
-                downloader.download();
-            } catch (IOException e) {
-                System.err.printf("ERROR: downloading '%s': %s%n", url, e.getMessage());
+        try {
+            List<String> command = new ArrayList<>();
+            command.add("./wget");
+            command.add("--background");
+
+            if (parser.hasOption("O")) {
+                command.add("-O=" + parser.getOptionValue("O"));
             }
-        }).start();
+            if (parser.hasOption("P")) {
+                command.add("-P=" + parser.getOptionValue("P"));
+            }
+            if (parser.hasOption("rate-limit")) {
+                command.add("--rate-limit=" + parser.getOptionValue("rate-limit"));
+            }
+            command.add(url);
+
+            ProcessBuilder pb = new ProcessBuilder(command);
+
+            File logFile = new File("wget-log");
+            pb.redirectOutput(ProcessBuilder.Redirect.to(logFile));
+            pb.redirectError(ProcessBuilder.Redirect.to(logFile));
+
+            pb.start();
+
+            System.exit(0);
+        } catch (IOException e) {
+            System.err.printf("ERROR: starting background download: %s%n", e.getMessage());
+        }
     }
 
     private void handleRegularDownloads() {

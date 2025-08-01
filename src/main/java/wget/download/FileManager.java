@@ -11,9 +11,7 @@ import wget.utils.FileUtils;
 import wget.utils.TerminalUtils;
 
 public class FileManager {
-
     private static final int BUFFER_SIZE = 8192;
-
     private final String fileName;
     private final String path;
 
@@ -26,7 +24,8 @@ public class FileManager {
         this.path = FileUtils.normalizePath(path);
     }
 
-    public void save(HttpURLConnection conn, int contentLength, boolean in_background, RateLimiter rateLimiter) throws IOException {
+    public void save(HttpURLConnection conn, int contentLength, boolean inBackground, RateLimiter rateLimiter)
+            throws IOException {
         try (InputStream in = conn.getInputStream(); FileOutputStream out = new FileOutputStream(path + fileName)) {
 
             byte[] buffer = new byte[BUFFER_SIZE];
@@ -49,12 +48,12 @@ public class FileManager {
                     }
                 }
 
-                if (!in_background) {
+                if (!inBackground) {
                     OutputFormatter.printProgressBar(downloaded, contentLength, barWidth, startNano);
                 }
             }
 
-            if (!in_background) {
+            if (!inBackground) {
                 System.out.print("\n\n");
             }
         }

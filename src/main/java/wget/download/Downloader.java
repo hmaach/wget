@@ -7,24 +7,24 @@ import wget.cli.OutputFormatter;
 import wget.utils.NetworkUtils;
 
 public class Downloader {
-
     private final String url;
     private final String fileName;
     private final String path;
     private final String method;
-    private final Boolean in_background;
+    private final Boolean inBackground;
     private final RateLimiter rateLimiter;
 
     private final OutputFormatter formatter;
 
-    public Downloader(String url, String fileName, String path, String method, OutputFormatter formatter, RateLimiter rateLimiter) {
+    public Downloader(String url, String fileName, String path, String method, OutputFormatter formatter,
+            RateLimiter rateLimiter) {
         this.url = url;
         this.fileName = fileName;
         this.path = path;
         this.method = method;
         this.formatter = formatter;
         this.rateLimiter = rateLimiter;
-        this.in_background = this.formatter.parser.hasOption("B");
+        this.inBackground = this.formatter.parser.hasOption("background");
     }
 
     // Overloaded constructor for backward compatibility
@@ -45,14 +45,10 @@ public class Downloader {
 
         FileManager fileManager = new FileManager(fileName, path);
         final String message = String.format("Saving file to: %s%n", path + fileName);
-        if (this.in_background) {
-            this.formatter.logger.log(message);
-        } else {
-            System.out.print(message);
-        }
+        System.out.print(message);
 
         // Pass rate limiter to file manager
-        fileManager.save(conn, contentLength, this.in_background, this.rateLimiter);
+        fileManager.save(conn, contentLength, this.inBackground, this.rateLimiter);
 
         formatter.printEnd(url);
     }

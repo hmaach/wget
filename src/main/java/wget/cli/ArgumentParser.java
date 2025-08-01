@@ -35,6 +35,7 @@ public class ArgumentParser {
         opts.addOption("X", "exclude", true, "Comma-separated list of paths to exclude (e.g., /js,/css)");
         opts.addOption(null, "convert-links", false, "Convert links for offline viewing");
 
+        opts.addOption(null, "background", false, "for background process");
         return opts;
     }
 
