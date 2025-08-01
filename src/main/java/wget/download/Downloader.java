@@ -34,7 +34,7 @@ public class Downloader {
 
         HttpURLConnection conn = NetworkUtils.createConnection(url, method);
 
-        formatter.printConnectionInfo(conn, fileName);
+        formatter.printConnectionInfo(conn);
 
         int contentLength = conn.getContentLength();
         String contentType = conn.getContentType();

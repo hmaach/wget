@@ -18,12 +18,13 @@ public class OutputFormatter {
     }
 
     public void printEnd(String fileName, String url) {
-        System.out.printf("Finished Downloading [%s] at %s%n", fileName, TimeUtils.timestamp());
+        System.out.printf("Downloaded [%s]%n", url, TimeUtils.timestamp());
+        System.out.printf("Finished [%s] at %s%n", fileName, TimeUtils.timestamp());
     }
 
-    public void printConnectionInfo(HttpURLConnection conn, String fileName) throws IOException {
+    public void printConnectionInfo(HttpURLConnection conn) throws IOException {
         int status = conn.getResponseCode();
-        System.out.printf("%n--%s: Sending request, awaiting response... Status %d %s%n", fileName,
+        System.out.printf("--Sending request, awaiting response... Status %d %s%n",
                 status, conn.getResponseMessage());
 
         if (status != HttpURLConnection.HTTP_OK) {

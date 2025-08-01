@@ -124,7 +124,7 @@ public class WebsiteMirror {
 
             FileManager fileManager = new FileManager(fileName,
                     localFilePath.getParent().toString() + "/");
-            fileManager.save(conn, contentLength, true, null);
+            fileManager.save(conn, contentLength, true, false, null);
 
             System.out.printf("Downloaded: %s -> %s%n", url, localPath);
             return localPath;
