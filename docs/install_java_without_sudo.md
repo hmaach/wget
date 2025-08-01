@@ -44,7 +44,7 @@ Add this to your `~/.bashrc` or `~/.zshrc`:
 
 ```bash
 # Java setup
-echo 'export PATH=~/java/jdk-17.0.11+9/bin:$PATH' >> ~/.zshrcj
+echo 'export PATH=~/java/jdk-17.0.11+9/bin:$PATH' >> ~/.zshrc
 
 ```
 
